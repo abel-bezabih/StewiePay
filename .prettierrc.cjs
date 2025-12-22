@@ -1,0 +1,14 @@
+module.exports = require('@stewiepay/prettier-config');
+
+
+
+
+
+
+
+
+
+
+
+
+

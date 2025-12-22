@@ -1,0 +1,26 @@
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "react-native",
+    "types": ["react", "react-native"],
+    "lib": ["ESNext"],
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

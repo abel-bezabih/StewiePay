@@ -1,0 +1,29 @@
+{
+  "name": "stewiepay",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "yarn@1.22.22",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "bootstrap": "yarn install --silent",
+    "lint": "echo \"Configure linting per package\"",
+    "format": "echo \"Configure formatting per package\"",
+    "typecheck": "echo \"Add workspace type checks\""
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

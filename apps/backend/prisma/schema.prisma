@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  INDIVIDUAL
+  BUSINESS
+  ADMIN
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum CardStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+enum CardType {
+  PERMANENT
+  BURNER
+  MERCHANT_LOCKED
+  SUBSCRIPTION_ONLY
+  ADS_ONLY
+}
+
+enum TransactionStatus {
+  AUTHORIZED
+  SETTLED
+  DECLINED
+}
+
+enum TopUpStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      UserRole @default(INDIVIDUAL)
+  passwordHash String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedOrganizations Organization[] @relation("OrganizationOwner")
+  memberships        OrganizationMember[]
+  cards              Card[]           @relation("UserCards")
+  topUps             TopUp[]
+  refreshTokens      RefreshToken[]
+
+  // Push notifications
+  pushToken          String?
+  notificationPreferences Json? // { transactions: true, limits: true, subscriptions: true, cardStatus: true }
+
+  // Budgets
+  budgets            Budget[]
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownerId String
+  owner   User     @relation("OrganizationOwner", fields: [ownerId], references: [id])
+
+  members OrganizationMember[]
+  cards   Card[] @relation("OrgCards")
+  topUps  TopUp[]
+}
+
+model OrganizationMember {
+  id        String   @id @default(uuid())
+  role      OrgRole  @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  userId         String
+  organizationId String
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+model Card {
+  id           String     @id @default(uuid())
+  issuerCardId String
+  status       CardStatus @default(ACTIVE)
+  type         CardType   @default(PERMANENT)
+  limitDaily   Int?
+  limitMonthly Int?
+  limitPerTxn  Int?
+  currency     String     @default("ETB")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Merchant locks
+  blockedCategories String[] @default([]) // MCC codes to block
+  allowedCategories String[] @default([]) // MCC codes to allow (whitelist mode)
+  blockedMerchants  String[] @default([]) // Merchant names/IDs to block
+  allowedMerchants  String[] @default([]) // Merchant names/IDs to allow (whitelist mode)
+  merchantLockMode  String?  // "BLOCK" or "ALLOW" - null means no merchant locks
+
+  // Time window controls
+  timeWindowEnabled Boolean  @default(false)
+  timeWindowConfig  String? // JSON: { daysOfWeek: [1,2,3,4,5], startTime: "09:00", endTime: "17:00", timezone: "Africa/Addis_Ababa" }
+
+  ownerUserId String?
+  ownerOrgId  String?
+
+  ownerUser User?         @relation("UserCards", fields: [ownerUserId], references: [id])
+  ownerOrg  Organization? @relation("OrgCards", fields: [ownerOrgId], references: [id])
+
+  transactions Transaction[]
+  subscriptions Subscription[]
+}
+
+model Transaction {
+  id           String            @id @default(uuid())
+  amount       Int
+  currency     String
+  merchantName String
+  mcc          String?
+  category     String?
+  timestamp    DateTime
+  status       TransactionStatus
+
+  cardId String
+  card   Card @relation(fields: [cardId], references: [id])
+}
+
+model TopUp {
+  id         String      @id @default(uuid())
+  provider   String
+  reference  String
+  amount     Int
+  currency   String
+  status     TopUpStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  userId     String?
+  orgId      String?
+
+  user User?         @relation(fields: [userId], references: [id])
+  org  Organization? @relation(fields: [orgId], references: [id])
+}
+
+model Subscription {
+  id                 String   @id @default(uuid())
+  merchant           String
+  amountHint         Int?
+  currency           String   @default("ETB")
+  nextExpectedCharge DateTime?
+  lastChargeAt       DateTime?
+
+  cardId String
+  card   Card @relation(fields: [cardId], references: [id])
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String   // e.g., "Food & Drink", "Shopping"
+  amount    Int      // Budget amount in cents/smallest currency unit
+  period    String   @default("monthly") // "monthly" or "weekly"
+  currency  String   @default("ETB")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category, period])
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  tokenHash   String
+  userId      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
