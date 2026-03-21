@@ -1,6 +1,6 @@
 // @ts-nocheck - Premium screen not in use, using react-native-paper which is not installed
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, StyleSheet, RefreshControl, Dimensions } from 'react-native';
+import { ScrollView, View, StyleSheet, RefreshControl, Dimensions, Alert } from 'react-native';
 // These imports are commented out as react-native-paper is not installed
 // The screen is not currently used in navigation
 /*
@@ -85,13 +85,31 @@ export const HomeScreenPremium = ({ navigation }: any) => {
     loadData();
   }, []);
 
+  const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
+    navigation.navigate('CreateCard');
+  };
+
   const spendPercentage = (stats.monthlySpend / stats.monthlyLimit) * 100;
   const chartData = stats.weeklySpend.map((value, index) => ({ x: index + 1, y: value }));
 
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size={32} color={theme.colors.primary} />
       </View>
     );
   }
@@ -146,7 +164,7 @@ export const HomeScreenPremium = ({ navigation }: any) => {
         ) : (
           <Card
             style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}
-            onPress={() => navigation.navigate('CreateCard')}
+            onPress={handleCreateCard}
           >
             <Card.Content style={styles.emptyCardContent}>
               <Text variant="displaySmall" style={{ marginBottom: 8 }}>💳</Text>
@@ -283,7 +301,7 @@ export const HomeScreenPremium = ({ navigation }: any) => {
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateCard')}
+        onPress={handleCreateCard}
         label="New Card"
       />
     </View>

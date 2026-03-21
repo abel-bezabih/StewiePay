@@ -224,7 +224,7 @@ export const TransactionsScreenPremium = ({ navigation, route }: any) => {
 
       {loading && txns.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={StewiePayBrand.colors.primary} />
+          <ActivityIndicator size={32} color={StewiePayBrand.colors.primary} />
           <Text variant="bodyMedium" style={{ color: StewiePayBrand.colors.onSurfaceVariant, marginTop: 16 }}>
             Loading transactions...
           </Text>

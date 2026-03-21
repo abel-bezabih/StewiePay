@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt.guard';
 import { CardsService } from './card.service';
 import { MerchantLockService } from './merchant-lock.service';
 import { CreateCardDto } from './dto/create-card.dto';
+import { UpdateCardLimitsDto } from './dto/update-card-limits.dto';
 import { UpdateMerchantLocksDto } from './dto/update-merchant-locks.dto';
 import { UpdateTimeWindowDto } from './dto/update-time-window.dto';
 import { CardCreationRateLimitGuard } from './card-creation-rate-limit.guard';
@@ -45,6 +46,15 @@ export class CardsController {
     // Verify user has access to the card
     await this.cardsService.getAccessibleCard(id, req.user.userId);
     return this.merchantLockService.updateMerchantLocks(id, dto);
+  }
+
+  @Patch(':id/limits')
+  updateLimits(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateCardLimitsDto
+  ) {
+    return this.cardsService.updateLimits(id, req.user.userId, dto);
   }
 
   @Get('mcc-categories')

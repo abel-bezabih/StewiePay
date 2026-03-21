@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Image,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
@@ -23,7 +25,7 @@ import Animated, {
   useAnimatedReaction,
 } from 'react-native-reanimated';
 import { useAuth } from '../contexts/AuthContext';
-import { CardsAPI, AnalyticsAPI, SubscriptionsAPI, TransactionsAPI } from '../api/client';
+import { CardsAPI, AnalyticsAPI, TransactionsAPI } from '../api/client';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { StewieCard } from '../components/stewiepay/StewieCard';
 import { StewieText } from '../components/stewiepay/StewieText';
@@ -48,26 +50,23 @@ export const HomeScreenStewie = ({ navigation }: any) => {
   const [availableThisMonth, setAvailableThisMonth] = useState(50000);
   const [monthlyLimit, setMonthlyLimit] = useState(50000);
   const [monthlySpend, setMonthlySpend] = useState(0);
-  const [nextCharge, setNextCharge] = useState<any>(null);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [hasTransactions, setHasTransactions] = useState(false);
   const [activeCardsCount, setActiveCardsCount] = useState(0);
 
   const loadData = async () => {
     try {
-      const [cardsResp, analyticsResp, subsResp, txnsResp] = await Promise.all([
+      const [cardsResp, analyticsResp, txnsResp] = await Promise.all([
         CardsAPI.list().catch(() => ({ data: [] })),
         AnalyticsAPI.spendByMonth().catch(() => ({ data: [] })),
-        SubscriptionsAPI.list().catch(() => ({ data: [] })),
         TransactionsAPI.list().catch(() => ({ data: [] })),
       ]);
 
-      const cards = cardsResp.data || [];
-      const primary = cards.find((c: any) => c.status === 'ACTIVE') || cards[0] || null;
+      const allCardsData = cardsResp.data || [];
+      const primary = allCardsData.find((c: any) => c.status === 'ACTIVE') || allCardsData[0] || null;
       setPrimaryCard(primary);
-      setAllCards(cards);
-      setActiveCardsCount(cards.filter((c: any) => c.status === 'ACTIVE').length);
+      setAllCards(allCardsData);
+      setActiveCardsCount(allCardsData.filter((c: any) => c.status === 'ACTIVE').length);
 
       const monthlyData = analyticsResp.data?.[analyticsResp.data.length - 1];
       const spend = monthlyData?.total || 0;
@@ -75,11 +74,6 @@ export const HomeScreenStewie = ({ navigation }: any) => {
       setMonthlySpend(spend);
       setAvailableThisMonth(Math.max(0, limit - spend));
 
-      // Get next upcoming charge
-      const subs = subsResp.data || [];
-      setSubscriptions(subs);
-      const upcoming = subs.find((s: any) => s.nextExpectedCharge) || null;
-      setNextCharge(upcoming);
 
       // Get last transaction (most recent first, assuming backend returns sorted)
       const txns = txnsResp.data || [];
@@ -119,6 +113,7 @@ export const HomeScreenStewie = ({ navigation }: any) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        {/* Background gradient is handled by FintechBackground component */}
         <ScrollView
           contentContainerStyle={styles.loadingContent}
           showsVerticalScrollIndicator={false}
@@ -147,8 +142,56 @@ export const HomeScreenStewie = ({ navigation }: any) => {
     );
   }
 
+  // Text color override for new color scheme
+  const textPrimary = '#111827';
+  const textMuted = '#6B7280';
+  const textSecondary = '#374151';
+  const kycStatus = (user as any)?.kycStatus || 'PENDING';
+  const openKycRequiredPrompt = () => {
+    const message =
+      kycStatus === 'SUBMITTED'
+        ? 'Your KYC is under review. Card creation unlocks after approval.'
+        : kycStatus === 'REJECTED'
+          ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+          : 'Please complete KYC to create cards.';
+    Alert.alert('KYC required', message, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+    ]);
+  };
+
+  const kycBanner = (() => {
+    if (kycStatus === 'VERIFIED') return null;
+    if (kycStatus === 'SUBMITTED') {
+      return {
+        icon: 'time-outline',
+        color: StewiePayBrand.colors.warning,
+        title: 'KYC under review',
+        subtitle: 'We are reviewing your documents. Financial actions stay locked until approved.',
+        cta: 'View status'
+      };
+    }
+    if (kycStatus === 'REJECTED') {
+      return {
+        icon: 'alert-circle-outline',
+        color: StewiePayBrand.colors.error,
+        title: 'KYC needs resubmission',
+        subtitle: (user as any)?.kycRejectionReason || 'Please resubmit your identity verification.',
+        cta: 'Resubmit KYC'
+      };
+    }
+    return {
+      icon: 'shield-checkmark-outline',
+      color: StewiePayBrand.colors.primary,
+      title: 'Complete KYC to unlock cards',
+      subtitle: 'Card creation, top-up and spending are locked until verification is completed.',
+      cta: 'Start KYC'
+    };
+  })();
+
   return (
     <View style={styles.container}>
+      {/* Background gradient is handled by FintechBackground component */}
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={StewiePayBrand.colors.primary} />}
         showsVerticalScrollIndicator={false}
@@ -157,31 +200,70 @@ export const HomeScreenStewie = ({ navigation }: any) => {
         {/* Compact Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View>
-              <StewieText variant="headlineMedium" color="brand" weight="black">
+            <View style={{ flex: 1 }}>
+              <StewieText variant="headlineMedium" color="brand" weight="black" style={{ color: StewiePayBrand.colors.primary }}>
                 StewiePay
               </StewieText>
-              {primaryCard && (
-                <StewieText variant="bodySmall" color="muted" style={{ marginTop: 4 }}>
+              {primaryCard ? (
+                <StewieText variant="bodySmall" color="muted" style={{ marginTop: 4, color: textMuted }}>
                   {activeCardsCount} {activeCardsCount === 1 ? 'card' : 'cards'} active
                 </StewieText>
-              )}
+              ) : null}
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate('Account');
-              }}
-              style={styles.profileButton}
-            >
-              <View style={styles.avatar}>
-                <StewieText variant="bodyMedium" color="primary" weight="bold">
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </StewieText>
-              </View>
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate('Account');
+                }}
+                style={styles.profileButton}
+              >
+                {(user as any)?.avatarUrl ? (
+                  <Image 
+                    source={{ uri: (user as any).avatarUrl }} 
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <StewieText variant="bodyMedium" color="primary" weight="bold">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </StewieText>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+
+        {kycBanner && (
+          <View style={styles.infoRow}>
+            <GlassCard elevated intensity={35} style={styles.compactCard}>
+              <View style={styles.kycBannerRow}>
+                <Ionicons name={kycBanner.icon as any} size={18} color={kycBanner.color} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <StewieText variant="labelMedium" color="primary" weight="semibold" style={{ color: textPrimary }}>
+                    {kycBanner.title}
+                  </StewieText>
+                  <StewieText variant="bodySmall" color="muted" style={{ marginTop: 2, color: textMuted }}>
+                    {kycBanner.subtitle}
+                  </StewieText>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('KycVerification');
+                  }}
+                  style={styles.kycBannerCta}
+                  activeOpacity={0.8}
+                >
+                  <StewieText variant="labelSmall" color="primary" weight="bold">
+                    {kycBanner.cta}
+                  </StewieText>
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </View>
+        )}
 
         {/* Swappable Card Carousel - Centered with Revolut-style stacking */}
         {allCards.length > 0 ? (
@@ -199,8 +281,8 @@ export const HomeScreenStewie = ({ navigation }: any) => {
           <View style={styles.emptyCardContainer}>
             <GlassCard elevated intensity={40} style={styles.emptyCardState}>
               <View style={styles.emptyCardContent}>
-                <Ionicons name="card-outline" size={56} color={StewiePayBrand.colors.textMuted} style={{ marginBottom: StewiePayBrand.spacing.md }} />
-                <StewieText variant="titleLarge" color="primary" weight="bold" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
+                <Ionicons name="card-outline" size={56} color={textMuted} style={{ marginBottom: StewiePayBrand.spacing.md }} />
+                <StewieText variant="titleLarge" color="primary" weight="bold" style={{ marginBottom: StewiePayBrand.spacing.xs, color: textPrimary }}>
                   No card selected
                 </StewieText>
               </View>
@@ -215,10 +297,10 @@ export const HomeScreenStewie = ({ navigation }: any) => {
           <GlassCard elevated intensity={35} style={styles.compactCard}>
             <View style={styles.rowContent}>
               <View style={styles.rowLeft}>
-                <StewieText variant="labelMedium" color="muted">
+                <StewieText variant="labelMedium" color="muted" style={{ color: textMuted }}>
                   Available this month
                 </StewieText>
-                <StewieText variant="headlineSmall" color="primary" weight="black" style={{ marginTop: 4 }}>
+                <StewieText variant="headlineSmall" color="primary" weight="black" style={{ marginTop: 4, color: textPrimary }}>
                   ETB {availableThisMonth.toLocaleString()}
                 </StewieText>
               </View>
@@ -231,7 +313,7 @@ export const HomeScreenStewie = ({ navigation }: any) => {
                     ]}
                   />
                 </View>
-                <StewieText variant="bodySmall" color="muted" style={{ marginTop: 6 }}>
+                <StewieText variant="bodySmall" color="muted" style={{ marginTop: 6, color: textMuted }}>
                   {daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'} until reset
                 </StewieText>
               </View>
@@ -244,28 +326,28 @@ export const HomeScreenStewie = ({ navigation }: any) => {
           <GlassCard elevated intensity={35} style={styles.compactCard}>
             <View style={styles.metadataRow}>
               <View style={styles.metadataItem}>
-                <StewieText variant="labelSmall" color="muted">
+                <StewieText variant="labelSmall" color="muted" style={{ color: textMuted }}>
                   Spent this month
                 </StewieText>
-                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2 }}>
+                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2, color: textPrimary }}>
                   ETB {monthlySpend.toLocaleString()}
                 </StewieText>
               </View>
               <View style={styles.separator} />
               <View style={styles.metadataItem}>
-                <StewieText variant="labelSmall" color="muted">
+                <StewieText variant="labelSmall" color="muted" style={{ color: textMuted }}>
                   Monthly limit
                 </StewieText>
-                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2 }}>
+                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2, color: textPrimary }}>
                   ETB {monthlyLimit.toLocaleString()}
                 </StewieText>
               </View>
               <View style={styles.separator} />
               <View style={styles.metadataItem}>
-                <StewieText variant="labelSmall" color="muted">
+                <StewieText variant="labelSmall" color="muted" style={{ color: textMuted }}>
                   Used
                 </StewieText>
-                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2 }}>
+                <StewieText variant="titleMedium" color="primary" weight="bold" style={{ marginTop: 2, color: textPrimary }}>
                   {percentageUsed.toFixed(0)}%
                 </StewieText>
               </View>
@@ -279,88 +361,35 @@ export const HomeScreenStewie = ({ navigation }: any) => {
             <GlassCard elevated intensity={35} style={styles.compactCard}>
               <View style={styles.rowContent}>
                 <View style={styles.rowLeft}>
-                  <StewieText variant="labelMedium" color="muted">
+                  <StewieText variant="labelMedium" color="muted" style={{ color: textMuted }}>
                     Last activity
                   </StewieText>
                   <View style={styles.activityDetails}>
-                    <StewieText variant="bodyMedium" color="primary" weight="medium">
+                    <StewieText variant="bodyMedium" color="primary" weight="medium" style={{ color: textPrimary }}>
                       {lastTransaction.merchantName}
                     </StewieText>
-                    <StewieText variant="bodySmall" color="muted" style={{ marginLeft: 8 }}>
+                    <StewieText variant="bodySmall" color="muted" style={{ marginLeft: 8, color: textMuted }}>
                       ETB {Math.abs(lastTransaction.amount).toLocaleString()}
                     </StewieText>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward-outline" size={18} color={StewiePayBrand.colors.textMuted} />
+                <Ionicons name="chevron-forward-outline" size={18} color={textMuted} />
               </View>
             </GlassCard>
           </View>
         )}
-
-        {/* Layer 4: Upcoming Charges (Compact) */}
-        <View style={styles.infoRow}>
-          <GlassCard elevated intensity={35} style={styles.compactCard}>
-            <View style={styles.rowContent}>
-              <View style={styles.rowLeft}>
-                <StewieText variant="labelMedium" color="muted">
-                  Upcoming charges
-                </StewieText>
-                {nextCharge ? (
-                  <View style={styles.activityDetails}>
-                    <StewieText variant="bodyMedium" color="primary" weight="medium">
-                      {nextCharge.merchant}
-                    </StewieText>
-                    <StewieText variant="bodySmall" color="muted" style={{ marginLeft: 8 }}>
-                      ETB {nextCharge.amountHint?.toLocaleString() || '—'} · {nextCharge.nextExpectedCharge ? formatNextChargeDate(nextCharge.nextExpectedCharge) : '—'}
-                    </StewieText>
-                  </View>
-                ) : (
-                  <StewieText variant="bodyMedium" color="muted" style={{ marginTop: 4 }}>
-                    No upcoming charges detected
-                  </StewieText>
-                )}
-              </View>
-            </View>
-          </GlassCard>
-        </View>
 
         {/* Layer 5: System Health (Compact) */}
         <View style={styles.infoRow}>
           <GlassCard elevated intensity={35} style={styles.compactCard}>
             <View style={styles.rowContent}>
               <View style={styles.healthIndicator} />
-              <StewieText variant="bodyMedium" color="muted">
+              <StewieText variant="bodyMedium" color="muted" style={{ color: textMuted }}>
                 All systems operational
               </StewieText>
             </View>
           </GlassCard>
         </View>
-
-        {/* Layer 6: Discovery - Active Subscriptions Count */}
-        {subscriptions.length > 0 && (
-          <View style={styles.infoRow}>
-            <GlassCard elevated intensity={35} style={styles.compactCard}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Subscriptions')}
-                style={styles.rowContent}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <Ionicons name="repeat-outline" size={18} color={StewiePayBrand.colors.primary} style={{ marginRight: 8 }} />
-                  <View>
-                    <StewieText variant="bodyMedium" color="primary" weight="medium">
-                      {subscriptions.length} {subscriptions.length === 1 ? 'subscription' : 'subscriptions'} detected
-                    </StewieText>
-                    <StewieText variant="bodySmall" color="muted" style={{ marginTop: 2 }}>
-                      Monitoring recurring charges
-                    </StewieText>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward-outline" size={18} color={StewiePayBrand.colors.textMuted} />
-              </TouchableOpacity>
-            </GlassCard>
-          </View>
-        )}
 
         {/* Layer 7: Context-Aware Action (Subtle) */}
         {!primaryCard && (
@@ -369,13 +398,17 @@ export const HomeScreenStewie = ({ navigation }: any) => {
               <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (kycStatus !== 'VERIFIED') {
+                    openKycRequiredPrompt();
+                    return;
+                  }
                   navigation.navigate('CreateCard');
                 }}
                 style={styles.rowContent}
                 activeOpacity={0.7}
               >
                 <Ionicons name="add-circle-outline" size={20} color={StewiePayBrand.colors.primary} style={{ marginRight: 8 }} />
-                <StewieText variant="bodyMedium" color="primary" weight="medium">
+                <StewieText variant="bodyMedium" color="primary" weight="medium" style={{ color: StewiePayBrand.colors.primary }}>
                   Create your first card
                 </StewieText>
               </TouchableOpacity>
@@ -395,7 +428,7 @@ export const HomeScreenStewie = ({ navigation }: any) => {
                 activeOpacity={0.7}
               >
                 <Ionicons name="settings-outline" size={20} color={StewiePayBrand.colors.primary} style={{ marginRight: 8 }} />
-                <StewieText variant="bodyMedium" color="primary" weight="medium">
+                <StewieText variant="bodyMedium" color="primary" weight="medium" style={{ color: StewiePayBrand.colors.primary }}>
                   Adjust limits
                 </StewieText>
               </TouchableOpacity>
@@ -412,6 +445,10 @@ export const HomeScreenStewie = ({ navigation }: any) => {
           style={styles.fab}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (kycStatus !== 'VERIFIED') {
+              openKycRequiredPrompt();
+              return;
+            }
             navigation.navigate('CreateCard');
           }}
           activeOpacity={0.8}
@@ -648,28 +685,14 @@ const SwipeableCardStack: React.FC<SwipeableCardStackProps> = ({ cards, user, on
   );
 };
 
-function formatNextChargeDate(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return 'Past due';
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Tomorrow';
-  if (diffDays < 7) return `In ${diffDays} days`;
-  
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent', // Transparent to show FintechBackground
+    backgroundColor: 'transparent', // Transparent to show FintechBackground gradient
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: 'transparent', // Transparent to show FintechBackground
+    backgroundColor: 'transparent', // Transparent to show FintechBackground gradient
   },
   loadingContent: {
     padding: StewiePayBrand.spacing.lg,
@@ -688,6 +711,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: StewiePayBrand.spacing.sm,
+  },
   profileButton: {
     marginTop: StewiePayBrand.spacing.xs,
   },
@@ -698,6 +726,13 @@ const styles = StyleSheet.create({
     backgroundColor: StewiePayBrand.colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: StewiePayBrand.colors.primary + '40',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: StewiePayBrand.colors.primary + '40',
   },
@@ -780,7 +815,7 @@ const styles = StyleSheet.create({
   compactProgressBar: {
     width: 80,
     height: 3,
-    backgroundColor: StewiePayBrand.colors.surfaceVariant,
+    backgroundColor: '#E5E7EB', // Light gray progress bar background
     borderRadius: StewiePayBrand.radius.full,
     overflow: 'hidden',
   },
@@ -802,7 +837,7 @@ const styles = StyleSheet.create({
   separator: {
     width: 1,
     height: 32,
-    backgroundColor: StewiePayBrand.colors.surfaceVariant,
+    backgroundColor: '#E5E7EB', // Light gray separator for white boxes
     marginHorizontal: StewiePayBrand.spacing.sm,
   },
   activityDetails: {
@@ -816,6 +851,18 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: StewiePayBrand.colors.success,
     marginRight: StewiePayBrand.spacing.sm,
+  },
+  kycBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  kycBannerCta: {
+    paddingHorizontal: StewiePayBrand.spacing.sm,
+    paddingVertical: StewiePayBrand.spacing.xs,
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant,
+    borderRadius: StewiePayBrand.radius.sm,
+    backgroundColor: StewiePayBrand.colors.surface,
   },
   actionCard: {
     borderWidth: 1,

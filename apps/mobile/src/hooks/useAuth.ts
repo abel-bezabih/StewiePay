@@ -50,6 +50,12 @@ export const useAuthState = () => {
     setError(null);
     try {
       const resp = await AuthAPI.signup({ name, email, password });
+      // Backend may return immediate tokens OR email verification required.
+      if (resp.data?.requiresEmailVerification) {
+        clearTokens();
+        setUser(null);
+        return true;
+      }
       // Backend returns { user, token, refreshToken }
       const token = resp.data.token || resp.data.accessToken;
       const refresh = resp.data.refreshToken;

@@ -1,3 +1,4 @@
+import { TransactionStatus } from '@prisma/client';
 export declare class ListTransactionsDto {
     cardId?: string;
     merchantName?: string;
@@ -7,4 +8,5 @@ export declare class ListTransactionsDto {
     minAmount?: number;
     maxAmount?: number;
     search?: string;
+    status?: TransactionStatus;
 }

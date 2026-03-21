@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IssuerWebhookDto = exports.CardWebhookData = exports.TransactionWebhookData = exports.IssuerWebhookEventType = void 0;
+exports.IssuerWebhookDto = exports.FundingWebhookData = exports.CardWebhookData = exports.TransactionWebhookData = exports.IssuerWebhookEventType = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 var IssuerWebhookEventType;
@@ -21,6 +21,9 @@ var IssuerWebhookEventType;
     IssuerWebhookEventType["CARD_UNFROZEN"] = "card.unfrozen";
     IssuerWebhookEventType["CARD_CLOSED"] = "card.closed";
     IssuerWebhookEventType["CARD_LIMIT_UPDATED"] = "card.limit_updated";
+    IssuerWebhookEventType["FUNDING_LOADED"] = "funding.loaded";
+    IssuerWebhookEventType["FUNDING_FAILED"] = "funding.failed";
+    IssuerWebhookEventType["FUNDING_PENDING"] = "funding.pending";
 })(IssuerWebhookEventType || (exports.IssuerWebhookEventType = IssuerWebhookEventType = {}));
 class TransactionWebhookData {
 }
@@ -81,6 +84,33 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CardWebhookData.prototype, "limitPerTxn", void 0);
+class FundingWebhookData {
+}
+exports.FundingWebhookData = FundingWebhookData;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FundingWebhookData.prototype, "topUpReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FundingWebhookData.prototype, "providerReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FundingWebhookData.prototype, "issuerReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FundingWebhookData.prototype, "reason", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], FundingWebhookData.prototype, "timestamp", void 0);
 class IssuerWebhookDto {
 }
 exports.IssuerWebhookDto = IssuerWebhookDto;
@@ -108,6 +138,12 @@ __decorate([
     (0, class_transformer_1.Type)(() => CardWebhookData),
     __metadata("design:type", CardWebhookData)
 ], IssuerWebhookDto.prototype, "card", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => FundingWebhookData),
+    __metadata("design:type", FundingWebhookData)
+], IssuerWebhookDto.prototype, "funding", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

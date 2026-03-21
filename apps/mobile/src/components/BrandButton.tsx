@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -22,6 +22,7 @@ interface BrandButtonProps {
   icon?: string;
   disabled?: boolean;
   fullWidth?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const BrandButton: React.FC<BrandButtonProps> = ({
@@ -31,7 +32,8 @@ export const BrandButton: React.FC<BrandButtonProps> = ({
   size = 'md',
   icon,
   disabled = false,
-  fullWidth = false
+  fullWidth = false,
+  style
 }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(disabled ? 0.5 : 1);
@@ -85,7 +87,7 @@ export const BrandButton: React.FC<BrandButtonProps> = ({
   if (variant === 'outline') {
     return (
       <AnimatedTouchable
-        style={[styles.outlineButton, { width: fullWidth ? '100%' : 'auto' }, animatedStyle]}
+        style={[styles.outlineButton, { width: fullWidth ? '100%' : 'auto' }, animatedStyle, style]}
         onPress={disabled ? undefined : onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -104,7 +106,7 @@ export const BrandButton: React.FC<BrandButtonProps> = ({
 
   return (
     <AnimatedTouchable
-      style={[styles.button, { width: fullWidth ? '100%' : 'auto' }, animatedStyle]}
+      style={[styles.button, { width: fullWidth ? '100%' : 'auto' }, animatedStyle, style]}
       onPress={disabled ? undefined : onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}

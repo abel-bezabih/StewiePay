@@ -107,36 +107,6 @@ let NotificationService = class NotificationService {
         });
     }
     /**
-     * Notify user of subscription renewal
-     */
-    async notifySubscriptionRenewal(userId, subscription) {
-        await this.sendToUser(userId, {
-            title: 'Subscription Renewal',
-            body: `${subscription.merchant} - ${subscription.currency} ${subscription.amount.toLocaleString()}`,
-            data: {
-                type: 'subscription_renewal',
-                merchant: subscription.merchant,
-                amount: subscription.amount
-            }
-        });
-    }
-    /**
-     * Notify user of upcoming subscription charge
-     */
-    async notifyUpcomingSubscription(userId, subscription) {
-        const daysUntil = Math.ceil((subscription.nextCharge.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        await this.sendToUser(userId, {
-            title: 'Upcoming Subscription',
-            body: `${subscription.merchant} will charge in ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'}`,
-            data: {
-                type: 'upcoming_subscription',
-                merchant: subscription.merchant,
-                amount: subscription.amount,
-                nextCharge: subscription.nextCharge.toISOString()
-            }
-        });
-    }
-    /**
      * Notify user of card status change
      */
     async notifyCardStatusChange(userId, cardId, status) {

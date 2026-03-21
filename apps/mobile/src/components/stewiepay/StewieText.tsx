@@ -21,7 +21,7 @@ type TextVariant =
 
 interface StewieTextProps extends TextProps {
   variant?: TextVariant;
-  color?: 'primary' | 'secondary' | 'muted' | 'brand' | 'success' | 'error' | 'warning';
+  color?: 'primary' | 'secondary' | 'muted' | 'brand' | 'success' | 'error' | 'warning' | 'onPrimary';
   weight?: 'light' | 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold' | 'black';
 }
 
@@ -78,6 +78,8 @@ function getColorValue(color: string): string {
       return StewiePayBrand.colors.error;
     case 'warning':
       return StewiePayBrand.colors.warning;
+    case 'onPrimary':
+      return StewiePayBrand.colors.textOnPrimary;
     default:
       return StewiePayBrand.colors.textPrimary;
   }

@@ -15,14 +15,12 @@ const user_module_1 = require("./users/user.module");
 const auth_module_1 = require("./auth/auth.module");
 const integrations_module_1 = require("./integrations/integrations.module");
 const card_module_1 = require("./cards/card.module");
-const organization_module_1 = require("./organizations/organization.module");
 const transaction_module_1 = require("./transactions/transaction.module");
 const topup_module_1 = require("./topups/topup.module");
 const analytics_module_1 = require("./analytics/analytics.module");
 const webhook_module_1 = require("./webhooks/webhook.module");
-const subscription_module_1 = require("./subscriptions/subscription.module");
 const notification_module_1 = require("./notifications/notification.module");
-const budget_module_1 = require("./budgets/budget.module");
+const subscription_module_1 = require("./subscriptions/subscription.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -37,14 +35,12 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             integrations_module_1.IntegrationsModule,
             card_module_1.CardsModule,
-            organization_module_1.OrganizationsModule,
             transaction_module_1.TransactionsModule,
             topup_module_1.TopUpModule,
+            subscription_module_1.SubscriptionsModule,
             analytics_module_1.AnalyticsModule,
             webhook_module_1.WebhookModule,
-            subscription_module_1.SubscriptionsModule,
-            notification_module_1.NotificationsModule,
-            budget_module_1.BudgetsModule
+            notification_module_1.NotificationsModule
         ],
         controllers: [app_controller_1.AppController]
     })

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -53,10 +53,11 @@ const formatSectionDate = (timestamp: string): string => {
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
 
-const groupTransactionsByDate = (transactions: any[]) => {
+const groupTransactionsByDate = (transactions: any[] | undefined | null) => {
   const grouped: { [key: string]: any[] } = {};
-  
-  transactions.forEach(txn => {
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+
+  safeTransactions.forEach(txn => {
     const date = new Date(txn.createdAt);
     const dateKey = date.toDateString();
     if (!grouped[dateKey]) {
@@ -65,7 +66,7 @@ const groupTransactionsByDate = (transactions: any[]) => {
     grouped[dateKey].push(txn);
   });
 
-  return Object.keys(grouped)
+  return Object.keys(grouped || {})
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
     .map(dateKey => ({
       title: formatSectionDate(grouped[dateKey][0].createdAt),
@@ -86,6 +87,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onPress 
   const isNegative = transaction.amount < 0;
   const amount = Math.abs(transaction.amount);
   const isSettled = transaction.status === 'SETTLED';
+  const isDeclined = transaction.status === 'DECLINED';
+  const isPending = transaction.status === 'AUTHORIZED';
+  const statusLabel = isSettled ? 'Settled' : isDeclined ? 'Declined' : 'Pending';
+  const statusColor = isSettled
+    ? StewiePayBrand.colors.success
+    : isDeclined
+      ? StewiePayBrand.colors.error
+      : StewiePayBrand.colors.warning;
 
   return (
     <GlassCard
@@ -113,17 +122,18 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onPress 
               <StewieText variant="titleMedium" color="primary" weight="semibold" numberOfLines={1}>
                 {transaction.merchantName || 'Unknown Merchant'}
               </StewieText>
-              {isSettled && (
-                <View style={styles.statusBadge}>
-                  <StewieText variant="labelSmall" color="success" weight="semibold">
-                    ✓
-                  </StewieText>
-                </View>
-              )}
             </View>
-            <StewieText variant="bodySmall" color="muted" style={{ marginTop: StewiePayBrand.spacing.xs }}>
-              {formatDate(transaction.createdAt)}
-            </StewieText>
+            <View style={styles.metaRow}>
+              <StewieText variant="bodySmall" color="muted">
+                {formatDate(transaction.createdAt)}
+              </StewieText>
+              <View style={[styles.statusPill, { backgroundColor: `${statusColor}20` }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                <StewieText variant="labelSmall" weight="semibold" style={{ color: statusColor }}>
+                  {statusLabel}
+                </StewieText>
+              </View>
+            </View>
           </View>
 
           {/* Amount */}
@@ -150,14 +160,25 @@ export const TransactionsScreenStewie = ({ navigation, route }: any) => {
   const [txns, setTxns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SETTLED' | 'AUTHORIZED' | 'DECLINED'>('ALL');
+  const [dateRangeDays, setDateRangeDays] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {};
-      if (searchQuery) params.search = searchQuery;
+      if (debouncedSearch) params.search = debouncedSearch;
       if (categoryFilter) params.category = categoryFilter;
+      if (statusFilter !== 'ALL') params.status = statusFilter;
+      if (dateRangeDays) {
+        const now = new Date();
+        const start = new Date(now);
+        start.setDate(now.getDate() - dateRangeDays);
+        params.startDate = start.toISOString();
+        params.endDate = now.toISOString();
+      }
       const resp = await TransactionsAPI.list(cardId, params);
       setTxns(resp.data || []);
     } catch (e) {
@@ -165,15 +186,27 @@ export const TransactionsScreenStewie = ({ navigation, route }: any) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cardId, debouncedSearch, categoryFilter, statusFilter, dateRangeDays]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
 
   useEffect(() => {
     load();
     const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
-  }, [navigation, cardId, searchQuery, categoryFilter]);
+  }, [navigation, load]);
 
   const categories = Array.from(new Set(txns.map((t) => t.category).filter(Boolean)));
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    Boolean(categoryFilter) ||
+    statusFilter !== 'ALL' ||
+    Boolean(dateRangeDays);
 
   // Calculate summary stats
   const summaryStats = useMemo(() => {
@@ -271,6 +304,114 @@ export const TransactionsScreenStewie = ({ navigation, route }: any) => {
         </GlassCard>
       </Animated.View>
 
+      {/* Filters */}
+      <Animated.View entering={FadeInDown.delay(125).duration(400)} style={styles.filtersRow}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={[
+            { label: 'All time', value: null },
+            { label: '7 days', value: 7 },
+            { label: '30 days', value: 30 },
+          ]}
+          keyExtractor={(item) => item.label}
+          renderItem={({ item }) => {
+            const isSelected = dateRangeDays === item.value;
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDateRangeDays(item.value);
+                }}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isSelected
+                      ? StewiePayBrand.colors.primary
+                      : StewiePayBrand.colors.surface,
+                    borderColor: isSelected
+                      ? StewiePayBrand.colors.primary
+                      : StewiePayBrand.colors.surfaceVariant,
+                  },
+                ]}
+              >
+                <StewieText
+                  variant="labelMedium"
+                  color={isSelected ? 'primary' : 'secondary'}
+                  weight={isSelected ? 'semibold' : 'regular'}
+                >
+                  {item.label}
+                </StewieText>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(135).duration(400)} style={styles.filtersRow}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={[
+            { label: 'All', value: 'ALL' as const },
+            { label: 'Settled', value: 'SETTLED' as const },
+            { label: 'Pending', value: 'AUTHORIZED' as const },
+            { label: 'Declined', value: 'DECLINED' as const },
+          ]}
+          keyExtractor={(item) => item.label}
+          renderItem={({ item }) => {
+            const isSelected = statusFilter === item.value;
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setStatusFilter(item.value);
+                }}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isSelected
+                      ? StewiePayBrand.colors.primary
+                      : StewiePayBrand.colors.surface,
+                    borderColor: isSelected
+                      ? StewiePayBrand.colors.primary
+                      : StewiePayBrand.colors.surfaceVariant,
+                  },
+                ]}
+              >
+                <StewieText
+                  variant="labelMedium"
+                  color={isSelected ? 'primary' : 'secondary'}
+                  weight={isSelected ? 'semibold' : 'regular'}
+                >
+                  {item.label}
+                </StewieText>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </Animated.View>
+
+      {hasActiveFilters && (
+        <View style={styles.clearFiltersRow}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSearchQuery('');
+              setCategoryFilter(null);
+              setStatusFilter('ALL');
+              setDateRangeDays(null);
+            }}
+            style={styles.clearFiltersButton}
+          >
+            <Ionicons name="close-circle-outline" size={16} color={StewiePayBrand.colors.textMuted} />
+            <StewieText variant="labelMedium" color="muted" style={{ marginLeft: 6 }}>
+              Clear filters
+            </StewieText>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Category Filters */}
       {categories.length > 0 && (
         <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.filtersContainer}>
@@ -351,7 +492,7 @@ export const TransactionsScreenStewie = ({ navigation, route }: any) => {
                 transaction={item}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  // Navigate to transaction detail
+                    navigation.navigate('TransactionDetail', { transaction: item });
                 }}
               />
             </Animated.View>
@@ -364,7 +505,7 @@ export const TransactionsScreenStewie = ({ navigation, route }: any) => {
                   {searchQuery || categoryFilter ? 'No transactions found' : 'No transactions yet'}
                 </StewieText>
                 <StewieText variant="bodyMedium" color="muted" style={{ textAlign: 'center', paddingHorizontal: StewiePayBrand.spacing.lg }}>
-                  {searchQuery || categoryFilter
+                  {hasActiveFilters
                     ? 'Try adjusting your search or filters'
                     : 'Your transactions will appear here once you start using your cards'}
                 </StewieText>
@@ -401,6 +542,25 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: StewiePayBrand.spacing.lg,
     paddingBottom: StewiePayBrand.spacing.sm,
+  },
+  filtersRow: {
+    paddingHorizontal: StewiePayBrand.spacing.lg,
+    paddingBottom: StewiePayBrand.spacing.xs,
+  },
+  clearFiltersRow: {
+    paddingHorizontal: StewiePayBrand.spacing.lg,
+    paddingBottom: StewiePayBrand.spacing.sm,
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: StewiePayBrand.spacing.xs,
+    paddingHorizontal: StewiePayBrand.spacing.sm,
+    borderRadius: StewiePayBrand.radius.full,
+    backgroundColor: StewiePayBrand.colors.surface,
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant,
   },
   searchCard: {
     padding: 0,
@@ -482,13 +642,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: StewiePayBrand.spacing.xs,
   },
-  statusBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: `${StewiePayBrand.colors.success}20`,
+  metaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: StewiePayBrand.spacing.sm,
+    marginTop: StewiePayBrand.spacing.xs,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: StewiePayBrand.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: StewiePayBrand.radius.full,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: StewiePayBrand.spacing.xs,
   },
   amountContainer: {
     alignItems: 'flex-end',

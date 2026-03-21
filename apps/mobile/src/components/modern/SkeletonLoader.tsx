@@ -29,6 +29,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   children,
 }) => {
   const shimmer = useSharedValue(0);
+  const sizeStyle = { width, height, borderRadius } as ViewStyle;
 
   useEffect(() => {
     shimmer.value = withRepeat(
@@ -54,7 +55,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 
   if (children) {
     return (
-      <View style={[styles.container, { width, height, borderRadius }, style]}>
+      <View style={[styles.container, sizeStyle, style]}>
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius }]}>
           <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
             <LinearGradient
@@ -75,7 +76,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   }
 
   return (
-    <View style={[styles.skeleton, { width, height, borderRadius }, style]}>
+    <View style={[styles.skeleton, sizeStyle, style]}>
       <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius }]}>
         <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
           <LinearGradient

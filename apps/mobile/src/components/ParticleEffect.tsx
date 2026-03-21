@@ -8,7 +8,6 @@ import Animated, {
   withSequence,
   interpolate,
   Extrapolate,
-  random
 } from 'react-native-reanimated';
 
 interface Particle {
@@ -130,6 +129,14 @@ const styles = StyleSheet.create({
     elevation: 5
   }
 });
+
+
+
+
+
+
+
+
 
 
 

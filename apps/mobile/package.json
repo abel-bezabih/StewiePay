@@ -10,7 +10,10 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings=0"
+    "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings=0",
+    "certify:typecheck": "tsc --noEmit",
+    "certify:export": "expo export --platform ios --platform android",
+    "certify:doctor": "expo-doctor"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -19,13 +22,18 @@
     "@react-navigation/bottom-tabs": "^6.5.12",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/native-stack": "^6.9.17",
+    "@sentry/react-native": "^8.1.0",
     "axios": "^1.6.7",
     "expo": "~54.0.0",
     "expo-blur": "~15.0.8",
+    "expo-file-system": "~19.0.21",
     "expo-haptics": "~15.0.8",
+    "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
+    "expo-local-authentication": "~17.0.8",
     "expo-notifications": "~0.32.15",
     "expo-status-bar": "~3.0.9",
+    "graphql": "^16.12.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -46,6 +54,7 @@
     "@babel/core": "^7.25.0",
     "@types/node": "^20.10.0",
     "@types/react": "~19.1.10",
+    "expo-doctor": "^1.18.13",
     "typescript": "^5.3.3"
   }
 }

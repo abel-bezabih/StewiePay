@@ -90,8 +90,8 @@ export const EnhancedAnimatedCounter: React.FC<EnhancedAnimatedCounterProps> = (
       style={[
         styles.text,
         {
-          color: StewiePayBrand.colors.onSurface,
-          fontWeight: StewiePayBrand.typography.fontWeight.extrabold
+          color: StewiePayBrand.colors.textPrimary,
+          fontWeight: '800'
         },
         style,
         animatedStyle

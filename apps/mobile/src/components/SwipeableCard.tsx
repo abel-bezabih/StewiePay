@@ -7,10 +7,9 @@ import Animated, {
   withTiming,
   interpolate,
   Extrapolate,
-  useAnimatedGestureHandler,
   runOnJS
 } from 'react-native-reanimated';
-import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 
@@ -44,14 +43,14 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
-  const gestureHandler = useAnimatedGestureHandler({
-    onStart: () => {
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    },
-    onActive: (event) => {
+    })
+    .onUpdate((event) => {
       translateX.value = event.translationX;
-    },
-    onEnd: () => {
+    })
+    .onEnd(() => {
       const shouldSwipeLeft = translateX.value < -SWIPE_THRESHOLD;
       const shouldSwipeRight = translateX.value > SWIPE_THRESHOLD;
 
@@ -71,8 +70,7 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
           stiffness: 100
         });
       }
-    }
-  });
+    });
 
   const cardStyle = useAnimatedStyle(() => {
     const rotateZ = interpolate(
@@ -129,14 +127,11 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
         )}
 
         {/* Card */}
-        <PanGestureHandler
-          enabled={enabled}
-          onGestureEvent={gestureHandler}
-        >
+        <GestureDetector gesture={panGesture}>
           <Animated.View style={cardStyle}>
             {children}
           </Animated.View>
-        </PanGestureHandler>
+        </GestureDetector>
       </View>
     </GestureHandlerRootView>
   );

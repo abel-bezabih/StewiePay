@@ -22,17 +22,22 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Object)
 ], UpdateSubscriptionDto.prototype, "amountHint", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsDateString)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
+], UpdateSubscriptionDto.prototype, "currency", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", Object)
 ], UpdateSubscriptionDto.prototype, "nextExpectedCharge", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], UpdateSubscriptionDto.prototype, "lastChargeAt", void 0);
 //# sourceMappingURL=update-subscription.dto.js.map

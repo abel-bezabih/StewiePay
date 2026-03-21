@@ -17,7 +17,7 @@ interface StewiePaymentCardProps {
   balance?: number;
   currency?: string;
   onPress?: () => void;
-  gradient?: string[];
+  gradient?: [string, string];
 }
 
 const getCardGradient = (type?: string): string[] => {
@@ -78,7 +78,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
   onPress,
   gradient,
 }) => {
-  const cardGradient = gradient || getCardGradient(type);
+  const cardGradient = (gradient || getCardGradient(type)) as [string, string];
   const isFrozen = status === 'FROZEN';
   const formattedCardNumber = cardNumber.match(/.{1,4}/g)?.join(' ') || cardNumber;
 
@@ -95,7 +95,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
         style={styles.cardContainer}
       >
         <LinearGradient
-          colors={isFrozen ? ['#4B5563', '#6B7280'] : cardGradient}
+          colors={isFrozen ? (['#4B5563', '#6B7280'] as [string, string]) : cardGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.card}
@@ -108,7 +108,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
             <View style={styles.metadataContainer}>
               <StewieText
                 variant="labelSmall"
-                color="primary"
+                color="onPrimary"
                 style={styles.metadataText}
               >
                 {formatCardType(type)}
@@ -116,7 +116,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
               <View style={[styles.statusDot, { backgroundColor: getStatusColor(status) }]} />
               <StewieText
                 variant="labelSmall"
-                color="primary"
+                color="onPrimary"
                 style={styles.metadataText}
               >
                 {formatStatus(status)}
@@ -128,7 +128,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
           <View style={styles.cardNumberContainer}>
             <StewieText
               variant="titleLarge"
-              color="primary"
+              color="onPrimary"
               weight="semibold"
               style={styles.cardNumber}
             >
@@ -141,7 +141,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
             <View style={styles.balanceContainer}>
               <StewieText
                 variant="displaySmall"
-                color="primary"
+                color="onPrimary"
                 weight="black"
                 style={styles.balanceAmount}
               >
@@ -155,7 +155,7 @@ export const StewiePaymentCard: React.FC<StewiePaymentCardProps> = ({
             <View style={styles.cardholderContainer}>
               <StewieText
                 variant="labelLarge"
-                color="primary"
+                color="onPrimary"
                 weight="bold"
                 style={styles.cardholderName}
               >

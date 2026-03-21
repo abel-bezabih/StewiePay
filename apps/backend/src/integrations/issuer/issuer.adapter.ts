@@ -15,6 +15,8 @@ export type IssuedCard = {
   last4: string;
 };
 
+export const ISSUER_ADAPTER = 'ISSUER_ADAPTER';
+
 export interface IssuerAdapter {
   issueCard(request: IssueCardRequest): Promise<IssuedCard>;
   freezeCard(issuerCardId: string): Promise<CardStatus>;

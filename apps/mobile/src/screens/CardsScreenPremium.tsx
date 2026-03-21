@@ -1,6 +1,6 @@
 // @ts-nocheck - Premium screen not in use, using react-native-paper which is not installed
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Alert } from 'react-native';
 // These imports are commented out as react-native-paper is not installed
 // The screen is not currently used in navigation
 /*
@@ -55,6 +55,20 @@ export const CardsScreenPremium = ({ navigation }: any) => {
   };
 
   const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('CreateCard');
   };
@@ -97,7 +111,7 @@ export const CardsScreenPremium = ({ navigation }: any) => {
 
       {loading && cards.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size={32} color={theme.colors.primary} />
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 16 }}>
             Loading your cards...
           </Text>

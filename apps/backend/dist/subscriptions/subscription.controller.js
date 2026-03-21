@@ -12,79 +12,47 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SubscriptionController = void 0;
+exports.SubscriptionsController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_guard_1 = require("../auth/jwt.guard");
-const subscription_detection_service_1 = require("./subscription-detection.service");
+const subscription_service_1 = require("./subscription.service");
 const create_subscription_dto_1 = require("./dto/create-subscription.dto");
 const update_subscription_dto_1 = require("./dto/update-subscription.dto");
-const card_service_1 = require("../cards/card.service");
-let SubscriptionController = class SubscriptionController {
-    constructor(subscriptionService, cardsService) {
-        this.subscriptionService = subscriptionService;
-        this.cardsService = cardsService;
+const list_subscriptions_dto_1 = require("./dto/list-subscriptions.dto");
+let SubscriptionsController = class SubscriptionsController {
+    constructor(subscriptionsService) {
+        this.subscriptionsService = subscriptionsService;
     }
-    async list(req) {
-        return this.subscriptionService.getSubscriptionsForUser(req.user.userId);
+    create(req, dto) {
+        return this.subscriptionsService.create(req.user.userId, dto);
     }
-    async listForCard(req, cardId) {
-        // Verify user has access to card
-        await this.cardsService.getAccessibleCard(cardId, req.user.userId);
-        return this.subscriptionService.getSubscriptionsForCard(cardId);
+    list(req, query) {
+        return this.subscriptionsService.list(req.user.userId, { cardId: query.cardId });
     }
-    async create(req, dto) {
-        // Verify user has access to card
-        await this.cardsService.getAccessibleCard(dto.cardId, req.user.userId);
-        return this.subscriptionService.createSubscription(dto.cardId, dto.merchant, dto.amountHint, dto.nextExpectedCharge ? new Date(dto.nextExpectedCharge) : undefined);
+    update(req, id, dto) {
+        return this.subscriptionsService.update(req.user.userId, id, dto);
     }
-    async update(req, id, dto) {
-        // Get subscription to verify access
-        const subscription = await this.subscriptionService.getSubscriptionById(id);
-        if (!subscription) {
-            throw new common_1.NotFoundException('Subscription not found');
-        }
-        await this.cardsService.getAccessibleCard(subscription.cardId, req.user.userId);
-        return this.subscriptionService.updateSubscription(id, {
-            merchant: dto.merchant,
-            amountHint: dto.amountHint,
-            nextExpectedCharge: dto.nextExpectedCharge ? new Date(dto.nextExpectedCharge) : undefined,
-            lastChargeAt: dto.lastChargeAt ? new Date(dto.lastChargeAt) : undefined
-        });
-    }
-    async delete(req, id) {
-        // Get subscription to verify access
-        const subscription = await this.subscriptionService.getSubscriptionById(id);
-        if (!subscription) {
-            throw new common_1.NotFoundException('Subscription not found');
-        }
-        await this.cardsService.getAccessibleCard(subscription.cardId, req.user.userId);
-        return this.subscriptionService.deleteSubscription(id);
+    remove(req, id) {
+        return this.subscriptionsService.remove(req.user.userId, id);
     }
 };
-exports.SubscriptionController = SubscriptionController;
-__decorate([
-    (0, common_1.Get)(),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], SubscriptionController.prototype, "list", null);
-__decorate([
-    (0, common_1.Get)('card/:cardId'),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('cardId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", Promise)
-], SubscriptionController.prototype, "listForCard", null);
+exports.SubscriptionsController = SubscriptionsController;
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, create_subscription_dto_1.CreateSubscriptionDto]),
-    __metadata("design:returntype", Promise)
-], SubscriptionController.prototype, "create", null);
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)(),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, list_subscriptions_dto_1.ListSubscriptionsDto]),
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "list", null);
 __decorate([
     (0, common_1.Patch)(':id'),
     __param(0, (0, common_1.Req)()),
@@ -92,20 +60,19 @@ __decorate([
     __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, update_subscription_dto_1.UpdateSubscriptionDto]),
-    __metadata("design:returntype", Promise)
-], SubscriptionController.prototype, "update", null);
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", Promise)
-], SubscriptionController.prototype, "delete", null);
-exports.SubscriptionController = SubscriptionController = __decorate([
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "remove", null);
+exports.SubscriptionsController = SubscriptionsController = __decorate([
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('subscriptions'),
-    __metadata("design:paramtypes", [subscription_detection_service_1.SubscriptionDetectionService,
-        card_service_1.CardsService])
-], SubscriptionController);
+    __metadata("design:paramtypes", [subscription_service_1.SubscriptionsService])
+], SubscriptionsController);
 //# sourceMappingURL=subscription.controller.js.map

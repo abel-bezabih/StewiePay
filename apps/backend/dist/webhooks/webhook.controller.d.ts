@@ -1,33 +1,53 @@
-import { WebhookService } from './webhook.service';
 import { IssuerWebhookDto } from './dto/issuer-webhook.dto';
 import { PspWebhookDto } from './dto/psp-webhook.dto';
+import { WebhookQueueService } from './webhook-queue.service';
+import { ListWebhookJobsDto } from './dto/list-webhook-jobs.dto';
 export declare class WebhookController {
-    private readonly webhookService;
-    constructor(webhookService: WebhookService);
+    private readonly webhookQueue;
+    constructor(webhookQueue: WebhookQueueService);
+    private assertAdmin;
     issuer(payload: IssuerWebhookDto): Promise<{
-        processed: boolean;
         ok: boolean;
-        error?: undefined;
-    } | {
-        processed: boolean;
-        reason: string;
-        ok: boolean;
-        error?: undefined;
-    } | {
-        ok: boolean;
-        error: any;
+        queued: boolean;
     }>;
     psp(payload: PspWebhookDto): Promise<{
-        processed: boolean;
         ok: boolean;
-        error?: undefined;
+        queued: boolean;
+    }>;
+    chapa(payload: any, headers: Record<string, string | string[]>): Promise<{
+        ok: boolean;
+        queued: boolean;
+    }>;
+    listJobs(req: any, query: ListWebhookJobsDto): Promise<{
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: string;
+            source: string;
+            webhookId: string;
+            attemptCount: number;
+            lastError: string | null;
+            nextAttemptAt: Date;
+            lockedAt: Date | null;
+            processedAt: Date | null;
+        }[];
+    }>;
+    retryJob(req: any, jobId: string): Promise<{
+        updated: boolean;
+        reason: "not_found";
+        ok: boolean;
     } | {
-        processed: boolean;
-        reason: string;
+        updated: boolean;
+        reason: "already_processing";
         ok: boolean;
-        error?: undefined;
     } | {
+        updated: boolean;
+        reason?: undefined;
         ok: boolean;
-        error: any;
+    }>;
+    retryFailed(req: any, limit?: string): Promise<{
+        queued: number;
+        ok: boolean;
     }>;
 }

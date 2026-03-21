@@ -1,22 +1,22 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { CardStatus, CardType, OrgRole } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException, ForbiddenException, Inject } from '@nestjs/common';
+import { CardStatus, CardType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCardDto } from './dto/create-card.dto';
-import { DummyIssuerAdapter } from '../integrations/issuer/dummy-issuer.adapter';
+import { ISSUER_ADAPTER, IssuerAdapter } from '../integrations/issuer/issuer.adapter';
 import { UsersService } from '../users/user.service';
 import { TimeWindowService } from './time-window.service';
 import { UpdateTimeWindowDto } from './dto/update-time-window.dto';
 import { NotificationService } from '../notifications/notification.service';
+import { UpdateCardLimitsDto } from './dto/update-card-limits.dto';
 
 @Injectable()
 export class CardsService {
   // Maximum cards per user (can be made configurable)
   private readonly MAX_CARDS_PER_USER = 50;
-  private readonly MAX_CARDS_PER_ORG = 100;
 
   constructor(
     private prisma: PrismaService,
-    private issuer: DummyIssuerAdapter,
+    @Inject(ISSUER_ADAPTER) private issuer: IssuerAdapter,
     private usersService: UsersService,
     private timeWindowService: TimeWindowService,
     private notificationService: NotificationService
@@ -30,36 +30,21 @@ export class CardsService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    // Add future checks here:
-    // - Email verification status
-    // - Account suspension
-    // - KYC completion
-    // - Payment method on file
+    await this.usersService.assertPaymentKycEligible(userId, 'create a card');
     return user;
   }
 
   /**
    * Check if user has reached card creation limit
    */
-  private async checkCardCreationLimit(userId: string, orgId?: string) {
-    if (orgId) {
-      const orgCardCount = await this.prisma.card.count({
-        where: { ownerOrgId: orgId, status: { not: CardStatus.CLOSED } }
-      });
-      if (orgCardCount >= this.MAX_CARDS_PER_ORG) {
-        throw new ForbiddenException(
-          `Organization has reached the maximum card limit of ${this.MAX_CARDS_PER_ORG}`
-        );
-      }
-    } else {
-      const userCardCount = await this.prisma.card.count({
-        where: { ownerUserId: userId, status: { not: CardStatus.CLOSED } }
-      });
-      if (userCardCount >= this.MAX_CARDS_PER_USER) {
-        throw new ForbiddenException(
-          `You have reached the maximum card limit of ${this.MAX_CARDS_PER_USER}`
-        );
-      }
+  private async checkCardCreationLimit(userId: string) {
+    const userCardCount = await this.prisma.card.count({
+      where: { ownerUserId: userId, status: { not: CardStatus.CLOSED } }
+    });
+    if (userCardCount >= this.MAX_CARDS_PER_USER) {
+      throw new ForbiddenException(
+        `You have reached the maximum card limit of ${this.MAX_CARDS_PER_USER}`
+      );
     }
   }
 
@@ -88,32 +73,27 @@ export class CardsService {
     }
   }
 
-  /**
-   * Assert user has access to organization
-   */
-  private async assertOrgAccess(userId: string, orgId: string) {
-    const org = await this.prisma.organization.findUnique({
-      where: { id: orgId },
-      include: {
-        members: { where: { userId } }
-      }
-    });
-    if (!org) throw new NotFoundException('Organization not found');
-    
-    const isOwner = org.ownerId === userId;
-    const isAdmin = org.members.some((m) => m.role === OrgRole.ADMIN);
-    const isMember = org.members.some((m) => m.role === OrgRole.MEMBER);
-    
-    if (!(isOwner || isAdmin || isMember)) {
-      throw new UnauthorizedException('Not a member of this organization');
+  private validateLimitsUpdate(dto: UpdateCardLimitsDto) {
+    if (dto.limitDaily !== undefined && dto.limitDaily !== null && dto.limitDaily < 0) {
+      throw new BadRequestException('Daily limit must be positive');
     }
-    
-    // Only owners and admins can create cards for orgs
-    if (!(isOwner || isAdmin)) {
-      throw new ForbiddenException('Only organization owners and admins can create cards');
+    if (dto.limitMonthly !== undefined && dto.limitMonthly !== null && dto.limitMonthly < 0) {
+      throw new BadRequestException('Monthly limit must be positive');
     }
-    
-    return { org, isOwnerOrAdmin: isOwner || isAdmin };
+    if (dto.limitPerTxn !== undefined && dto.limitPerTxn !== null && dto.limitPerTxn < 0) {
+      throw new BadRequestException('Per-transaction limit must be positive');
+    }
+
+    const daily = dto.limitDaily ?? undefined;
+    const monthly = dto.limitMonthly ?? undefined;
+    const perTxn = dto.limitPerTxn ?? undefined;
+
+    if (daily && monthly && daily > monthly) {
+      throw new BadRequestException('Daily limit cannot exceed monthly limit');
+    }
+    if (perTxn && daily && perTxn > daily) {
+      throw new BadRequestException('Per-transaction limit cannot exceed daily limit');
+    }
   }
 
   /**
@@ -126,19 +106,11 @@ export class CardsService {
     // 2. Validate card limits
     this.validateCardLimits(dto);
 
-    // 3. Check organization access if orgId provided
-    let ownerUserId: string | undefined;
-    let ownerOrgId: string | undefined;
-
-    if (dto.orgId) {
-      await this.assertOrgAccess(userId, dto.orgId);
-      ownerOrgId = dto.orgId;
-    } else {
-      ownerUserId = userId;
-    }
+    // 3. Cards are owned by the user in V1
+    const ownerUserId = userId;
 
     // 4. Check card creation limits
-    await this.checkCardCreationLimit(userId, dto.orgId);
+    await this.checkCardCreationLimit(userId);
 
     // 5. Validate card type
     const type = dto.type ?? CardType.PERMANENT;
@@ -148,7 +120,7 @@ export class CardsService {
     let issuerCard;
     try {
       issuerCard = await this.issuer.issueCard({
-        ownerReference: dto.orgId ?? userId,
+        ownerReference: userId,
         type,
         limitDaily: dto.limitDaily,
         limitMonthly: dto.limitMonthly,
@@ -172,8 +144,7 @@ export class CardsService {
           limitMonthly: dto.limitMonthly,
           limitPerTxn: dto.limitPerTxn,
           currency,
-          ownerUserId,
-          ownerOrgId
+          ownerUserId
         }
       });
 
@@ -195,15 +166,9 @@ export class CardsService {
   }
 
   async listForUser(userId: string) {
-    const orgMemberships = await this.prisma.organizationMember.findMany({
-      where: { userId },
-      select: { organizationId: true }
-    });
-    const orgIds = orgMemberships.map((m) => m.organizationId);
-
     return this.prisma.card.findMany({
       where: {
-        OR: [{ ownerUserId: userId }, ...(orgIds.length ? [{ ownerOrgId: { in: orgIds } }] : [])]
+        ownerUserId: userId
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -214,31 +179,13 @@ export class CardsService {
     if (!card) throw new NotFoundException('Card not found');
 
     if (card.ownerUserId === userId) return card;
-    if (card.ownerOrgId) {
-      const membership = await this.prisma.organizationMember.findFirst({
-        where: { organizationId: card.ownerOrgId, userId }
-      });
-      if (membership || (await this.prisma.organization.findFirst({ where: { id: card.ownerOrgId, ownerId: userId } }))) {
-        return card;
-      }
-    }
     throw new UnauthorizedException('No access to this card');
   }
 
   async getAccessibleCardIds(userId: string) {
     const cards = await this.prisma.card.findMany({
       where: {
-        OR: [
-          { ownerUserId: userId },
-          {
-            ownerOrg: {
-              OR: [
-                { ownerId: userId },
-                { members: { some: { userId } } }
-              ]
-            }
-          }
-        ]
+        ownerUserId: userId
       },
       select: { id: true }
     });
@@ -254,12 +201,9 @@ export class CardsService {
     });
 
     // Send notification
-    const ownerUserId = card.ownerUserId || (card.ownerOrgId
-      ? (await this.prisma.organization.findUnique({ where: { id: card.ownerOrgId }, select: { ownerId: true } }))?.ownerId
-      : null);
-    if (ownerUserId) {
+    if (card.ownerUserId) {
       this.notificationService
-        .notifyCardStatusChange(ownerUserId, cardId, 'FROZEN')
+        .notifyCardStatusChange(card.ownerUserId, cardId, 'FROZEN')
         .catch((err) => console.error('Notification failed:', err));
     }
 
@@ -275,16 +219,27 @@ export class CardsService {
     });
 
     // Send notification
-    const ownerUserId = card.ownerUserId || (card.ownerOrgId
-      ? (await this.prisma.organization.findUnique({ where: { id: card.ownerOrgId }, select: { ownerId: true } }))?.ownerId
-      : null);
-    if (ownerUserId) {
+    if (card.ownerUserId) {
       this.notificationService
-        .notifyCardStatusChange(ownerUserId, cardId, 'ACTIVE')
+        .notifyCardStatusChange(card.ownerUserId, cardId, 'ACTIVE')
         .catch((err) => console.error('Notification failed:', err));
     }
 
     return updated;
+  }
+
+  async updateLimits(cardId: string, userId: string, dto: UpdateCardLimitsDto) {
+    const card = await this.getAccessibleCard(cardId, userId);
+    this.validateLimitsUpdate(dto);
+
+    return this.prisma.card.update({
+      where: { id: card.id },
+      data: {
+        limitDaily: dto.limitDaily === null ? null : dto.limitDaily ?? card.limitDaily,
+        limitMonthly: dto.limitMonthly === null ? null : dto.limitMonthly ?? card.limitMonthly,
+        limitPerTxn: dto.limitPerTxn === null ? null : dto.limitPerTxn ?? card.limitPerTxn
+      }
+    });
   }
 
   async updateTimeWindow(cardId: string, userId: string, dto: UpdateTimeWindowDto) {

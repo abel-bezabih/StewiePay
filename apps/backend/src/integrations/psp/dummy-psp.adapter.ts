@@ -7,7 +7,8 @@ export class DummyPspAdapter implements PspAdapter {
     return {
       provider: 'dummy-psp',
       providerReference: `psp-${request.reference}`,
-      status: 'PENDING'
+      status: 'PENDING',
+      checkoutUrl: undefined
     };
   }
 
@@ -15,10 +16,19 @@ export class DummyPspAdapter implements PspAdapter {
     return {
       provider: 'dummy-psp',
       providerReference,
-      status: 'COMPLETED'
+      status: 'COMPLETED',
+      rawStatus: 'success'
     };
   }
 }
+
+
+
+
+
+
+
+
 
 
 

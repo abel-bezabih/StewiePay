@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { PieChart, BarChart } from 'react-native-chart-kit';
+import { PieChart } from 'react-native-chart-kit';
 import { AnalyticsAPI } from '../api/client';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { StewieCard } from '../components/stewiepay/StewieCard';
@@ -27,20 +27,17 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [categoryData, setCategoryData] = useState<any[]>([]);
-  const [insights, setInsights] = useState<any>(null);
-  const [topCategories, setTopCategories] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
 
   const loadData = async () => {
     try {
-      const [categoryResp, insightsResp, topResp] = await Promise.all([
+      const [categoryResp, monthlyResp] = await Promise.all([
         AnalyticsAPI.spendByCategory().catch(() => ({ data: [] })),
-        AnalyticsAPI.insights().catch(() => ({ data: null })),
-        AnalyticsAPI.topCategories(5).catch(() => ({ data: [] })),
+        AnalyticsAPI.spendByMonth().catch(() => ({ data: [] })),
       ]);
 
       setCategoryData(categoryResp.data || []);
-      setInsights(insightsResp.data);
-      setTopCategories(topResp.data || []);
+      setMonthlyData(monthlyResp.data || []);
     } catch (e) {
       console.error('Failed to load analytics:', e);
     } finally {
@@ -82,6 +79,8 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
   }
 
   const hasData = categoryData.length > 0;
+  const latestMonth = monthlyData[monthlyData.length - 1];
+  const latestSpend = latestMonth?.total || 0;
 
   // Prepare pie chart data
   const pieData = categoryData.slice(0, 6).map((item) => ({
@@ -91,16 +90,6 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
     legendFontColor: StewiePayBrand.colors.textPrimary,
     legendFontSize: 12,
   }));
-
-  // Prepare bar chart data - use category names instead of icons for chart labels
-  const barData = {
-    labels: topCategories.slice(0, 5).map((c) => c.category?.slice(0, 8) || 'Other'),
-    datasets: [
-      {
-        data: topCategories.slice(0, 5).map((c) => c.amount),
-      },
-    ],
-  };
 
   return (
     <View style={styles.container}>
@@ -112,7 +101,7 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
       >
         {/* StewiePay Header */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-          <StewieText variant="headlineLarge" color="primary" weight="black">
+          <StewieText variant="headlineLarge" color="primary" weight="black" style={{ color: StewiePayBrand.colors.primary }}>
             Analytics
           </StewieText>
           <StewieText variant="bodyMedium" color="muted" style={{ marginTop: StewiePayBrand.spacing.xs }}>
@@ -132,68 +121,23 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
           </Animated.View>
         ) : (
           <>
-            {/* Insights Cards */}
-            {insights && (
-              <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.insightsContainer}>
-                <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-                  <GlassCard elevated intensity={35} style={styles.insightCard}>
-                    <StewieText variant="labelMedium" color="muted" style={{ marginBottom: StewiePayBrand.spacing.sm }}>
-                      Total Spend
-                    </StewieText>
-                    <StewieText variant="displaySmall" color="primary" weight="black" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                      ETB {insights.totalSpend?.toLocaleString() || '0'}
-                    </StewieText>
+            <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.insightsContainer}>
+              <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+                <GlassCard elevated intensity={35} style={styles.insightCard}>
+                  <StewieText variant="labelMedium" color="muted" style={{ marginBottom: StewiePayBrand.spacing.sm }}>
+                    Latest Month Spend
+                  </StewieText>
+                  <StewieText variant="displaySmall" color="primary" weight="black" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
+                    ETB {latestSpend?.toLocaleString() || '0'}
+                  </StewieText>
+                  {latestMonth?.month && latestMonth?.year && (
                     <StewieText variant="bodySmall" color="muted">
-                      {insights.totalTransactions || 0} transactions
+                      {latestMonth.month}/{latestMonth.year}
                     </StewieText>
-                  </GlassCard>
-                </Animated.View>
-
-                <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-                  <GlassCard elevated intensity={35} style={styles.insightCard}>
-                    <StewieText variant="labelMedium" color="muted" style={{ marginBottom: StewiePayBrand.spacing.sm }}>
-                      This Month
-                    </StewieText>
-                    <StewieText variant="displaySmall" color="primary" weight="black" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                      ETB {insights.monthlySpend?.toLocaleString() || '0'}
-                    </StewieText>
-                    {insights.monthlyChange !== 0 && (
-                      <View style={styles.changeRow}>
-                        <StewieText
-                          variant="bodySmall"
-                          style={{
-                            color: insights.monthlyChange > 0 ? StewiePayBrand.colors.error : StewiePayBrand.colors.secondary,
-                            marginTop: StewiePayBrand.spacing.xs,
-                          }}
-                        >
-                          {insights.monthlyChange > 0 ? '↑' : '↓'} {Math.abs(insights.monthlyChange || 0).toFixed(1)}% vs last month
-                        </StewieText>
-                      </View>
-                    )}
-                  </GlassCard>
-                </Animated.View>
-
-                {insights.topCategory && (
-                  <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-                    <GlassCard elevated intensity={35} style={styles.insightCard}>
-                      <StewieText variant="labelMedium" color="muted" style={{ marginBottom: StewiePayBrand.spacing.sm }}>
-                        Top Category
-                      </StewieText>
-                      <View style={styles.topCategoryRow}>
-                        <Ionicons
-                          name={getCategoryIcon(insights.topCategory) as keyof typeof Ionicons.glyphMap}
-                          size={32}
-                          color={getCategoryColor(insights.topCategory)}
-                        />
-                        <StewieText variant="headlineSmall" color="primary" weight="bold" style={{ marginLeft: StewiePayBrand.spacing.sm }}>
-                          {insights.topCategory}
-                        </StewieText>
-                      </View>
-                    </GlassCard>
-                  </Animated.View>
-                )}
+                  )}
+                </GlassCard>
               </Animated.View>
-            )}
+            </Animated.View>
 
             {/* Category Breakdown */}
             {categoryData.length > 0 && (
@@ -271,41 +215,6 @@ export const AnalyticsScreenStewie = ({ navigation }: any) => {
               </Animated.View>
             )}
 
-            {/* Top Categories Bar Chart */}
-            {topCategories.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.section}>
-                <GlassCard elevated intensity={35}>
-                  <StewieText variant="titleLarge" color="primary" weight="bold" style={styles.sectionTitle}>
-                    Top Categories
-                  </StewieText>
-                  <View style={styles.chartContainer}>
-                    <BarChart
-                      data={barData}
-                      width={CHART_WIDTH}
-                      height={220}
-                      chartConfig={{
-                        backgroundColor: StewiePayBrand.colors.surface,
-                        backgroundGradientFrom: StewiePayBrand.colors.surface,
-                        backgroundGradientTo: StewiePayBrand.colors.surface,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => StewiePayBrand.colors.primary,
-                        labelColor: (opacity = 1) => StewiePayBrand.colors.textMuted,
-                        style: {
-                          borderRadius: StewiePayBrand.radius.lg,
-                        },
-                      }}
-                      style={{
-                        marginVertical: StewiePayBrand.spacing.sm,
-                        borderRadius: StewiePayBrand.radius.lg,
-                      }}
-                      yAxisLabel="ETB "
-                      yAxisSuffix=""
-                      showValuesOnTopOfBars
-                    />
-                  </View>
-                </GlassCard>
-              </Animated.View>
-            )}
           </>
         )}
       </ScrollView>
@@ -347,13 +256,6 @@ const styles = StyleSheet.create({
   insightCard: {
     flex: 1,
     padding: StewiePayBrand.spacing.md,
-  },
-  changeRow: {
-    marginTop: StewiePayBrand.spacing.xs,
-  },
-  topCategoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   section: {
     paddingHorizontal: StewiePayBrand.spacing.md,

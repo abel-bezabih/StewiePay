@@ -18,13 +18,20 @@ export class NotificationController {
     @Body() preferences: {
       transactions?: boolean;
       limits?: boolean;
-      subscriptions?: boolean;
       cardStatus?: boolean;
     }
   ) {
     return this.notificationService.updatePreferences(req.user.userId, preferences);
   }
 }
+
+
+
+
+
+
+
+
 
 
 

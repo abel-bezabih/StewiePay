@@ -12,10 +12,17 @@ import { StewiePayBrand } from '../brand/StewiePayBrand';
  */
 export const AppContent: React.FC = () => {
   const [splashVisible, setSplashVisible] = useState(true);
+  const [forceHideSplash, setForceHideSplash] = useState(false);
   const { initializing } = useAuth();
 
+  useEffect(() => {
+    // Never block the app on slow auth init
+    const timer = setTimeout(() => setForceHideSplash(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Show splash screen until it finishes AND auth is initialized
-  if (splashVisible || initializing) {
+  if ((splashVisible || initializing) && !forceHideSplash) {
     return <SplashScreen onFinish={() => setSplashVisible(false)} />;
   }
 

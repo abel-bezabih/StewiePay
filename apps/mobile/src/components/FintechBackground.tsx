@@ -11,98 +11,79 @@ interface FintechBackgroundProps {
 }
 
 /**
- * FintechBackground - Dark Gray with crazy creative design
- * Beautiful abstract patterns with dark gray tones
+ * FintechBackground - Light Grayish White to Purple Gradient
+ * Beautiful gradient from top to bottom: starts light, transitions to purple from middle, deepens downward
  */
 export const FintechBackground: React.FC<FintechBackgroundProps> = ({ children, style }) => {
   return (
     <View style={[styles.container, style]}>
-      {/* Base dark gray gradient - beautiful flow */}
+      {/* Main gradient - Light grayish white (top) to Purple (bottom) */}
       <LinearGradient
         colors={[
-          '#2D2D2D', // Dark gray (top)
-          '#252525', // Darker gray
-          '#1F1F1F', // Very dark gray
-          '#1A1A1A', // Almost black gray
-          '#151515', // Deep dark gray
-          '#0F0F0F', // Nearly black (bottom)
+          '#F8F9FB', // Light grayish white at top
+          '#F8F9FB', // Light grayish white continues
+          '#F5F3FF', // Very light purple tint starts (middle)
+          '#EDE9FE', // Light purple tint
+          '#E9D5FF', // Medium light purple
+          '#DDD6FE', // Medium purple
+          '#C4B5FD', // Deeper purple
+          '#A78BFA', // Deep purple (bottom)
         ]}
+        locations={[0, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      
+      {/* Subtle radial overlay - adds depth with purple tones */}
+      <LinearGradient
+        colors={[
+          'rgba(248, 249, 251, 0.3)', // Light overlay at top
+          'transparent',
+          'rgba(167, 139, 250, 0.15)', // Subtle purple overlay at bottom
+        ]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      
+      {/* Subtle diagonal accent - adds sophistication with purple tones */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          'rgba(237, 233, 254, 0.12)', // Very light purple
+          'transparent',
+          'rgba(196, 181, 253, 0.08)', // Light purple
+          'transparent',
+        ]}
+        locations={[0, 0.25, 0.5, 0.75, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       
-      {/* Radial gradient overlay - creates depth with dark gray tones */}
-      <LinearGradient
-        colors={[
-          'rgba(45, 45, 45, 0.8)', // Dark gray center
-          'rgba(37, 37, 37, 0.6)', // Medium dark gray
-          'rgba(31, 31, 31, 0.4)', // Deep dark gray edges
-        ]}
-        start={{ x: 0.3, y: 0.3 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      
-      {/* Diagonal wave pattern with dark gray */}
-      <LinearGradient
-        colors={[
-          'transparent',
-          'rgba(50, 50, 50, 0.4)',
-          'transparent',
-          'rgba(40, 40, 40, 0.5)',
-          'transparent',
-        ]}
-        locations={[0, 0.3, 0.5, 0.7, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      
-      {/* Crazy abstract shapes - Large organic circles */}
+      {/* Subtle abstract shapes - Large soft circles for depth */}
       <View style={styles.organicCircle1} />
       <View style={styles.organicCircle2} />
       <View style={styles.organicCircle3} />
-      <View style={styles.organicCircle4} />
-      <View style={styles.organicCircle5} />
       
-      {/* Geometric shapes - Hexagons and diamonds effect */}
+      {/* Subtle geometric accents */}
       <View style={styles.geometricShape1} />
       <View style={styles.geometricShape2} />
-      <View style={styles.geometricShape3} />
       
-      {/* Flowing lines - organic curves */}
+      {/* Subtle flowing lines - minimal design */}
       <View style={styles.flowLine1} />
       <View style={styles.flowLine2} />
       <View style={styles.flowLine3} />
-      <View style={styles.flowLine4} />
-      <View style={styles.flowLine5} />
       
-      {/* Sparkle dots pattern */}
-      <View style={styles.sparkleContainer} pointerEvents="none">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <View 
-            key={`sparkle-${i}`} 
-            style={[
-              styles.sparkle,
-              {
-                left: (i * 37) % SCREEN_WIDTH,
-                top: (i * 43) % SCREEN_HEIGHT,
-                opacity: 0.3 + (i % 3) * 0.2,
-              }
-            ]} 
-          />
-        ))}
-      </View>
-      
-      {/* Mesh gradient overlay - adds texture with dark gray */}
+      {/* Subtle mesh overlay - adds texture with purple tones */}
       <LinearGradient
         colors={[
-          'rgba(50, 50, 50, 0.3)',
+          'rgba(248, 249, 251, 0.08)',
           'transparent',
-          'rgba(40, 40, 40, 0.2)',
+          'rgba(237, 233, 254, 0.06)',
           'transparent',
-          'rgba(30, 30, 30, 0.25)',
+          'rgba(196, 181, 253, 0.08)',
         ]}
         locations={[0, 0.25, 0.5, 0.75, 1]}
         start={{ x: 0, y: 0 }}
@@ -121,159 +102,95 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#1F1F1F', // Dark gray base color
+    backgroundColor: '#F8F9FB', // Light grayish white base color
   },
-  // Organic circles - large flowing shapes with dark gray
+  // Organic circles - large soft shapes with purple tones
   organicCircle1: {
     position: 'absolute',
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    backgroundColor: 'rgba(50, 50, 50, 0.5)', // Dark gray
-    top: -250,
-    right: -200,
-    opacity: 0.7,
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+    backgroundColor: 'rgba(237, 233, 254, 0.2)', // Very light purple
+    top: -200,
+    right: -150,
+    opacity: 0.3,
   },
   organicCircle2: {
     position: 'absolute',
-    width: 550,
-    height: 550,
-    borderRadius: 275,
-    backgroundColor: 'rgba(40, 40, 40, 0.4)', // Medium dark gray
-    bottom: -200,
-    left: -150,
-    opacity: 0.6,
+    width: 450,
+    height: 450,
+    borderRadius: 225,
+    backgroundColor: 'rgba(221, 214, 254, 0.15)', // Light purple
+    bottom: -150,
+    left: -100,
+    opacity: 0.25,
   },
   organicCircle3: {
-    position: 'absolute',
-    width: 480,
-    height: 480,
-    borderRadius: 240,
-    backgroundColor: 'rgba(45, 45, 45, 0.5)', // Soft dark gray
-    top: SCREEN_HEIGHT * 0.35,
-    right: SCREEN_WIDTH * 0.1,
-    opacity: 0.55,
-  },
-  organicCircle4: {
     position: 'absolute',
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: 'rgba(35, 35, 35, 0.4)', // Rich dark gray
-    top: SCREEN_HEIGHT * 0.65,
-    left: SCREEN_WIDTH * 0.05,
-    opacity: 0.5,
+    backgroundColor: 'rgba(196, 181, 253, 0.12)', // Medium purple
+    top: SCREEN_HEIGHT * 0.4,
+    right: SCREEN_WIDTH * 0.15,
+    opacity: 0.2,
   },
-  organicCircle5: {
-    position: 'absolute',
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    backgroundColor: 'rgba(30, 30, 30, 0.45)', // Deep dark gray
-    top: SCREEN_HEIGHT * 0.2,
-    left: SCREEN_WIDTH * 0.4,
-    opacity: 0.48,
-  },
-  // Geometric shapes - hexagon/diamond effect with dark gray
+  // Geometric shapes - subtle purple accents
   geometricShape1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    backgroundColor: 'rgba(50, 50, 50, 0.3)',
-    top: SCREEN_HEIGHT * 0.1,
-    left: SCREEN_WIDTH * 0.2,
-    transform: [{ rotate: '45deg' }],
-    borderRadius: 40,
-    opacity: 0.4,
-  },
-  geometricShape2: {
     position: 'absolute',
     width: 180,
     height: 180,
-    backgroundColor: 'rgba(40, 40, 40, 0.35)',
-    bottom: SCREEN_HEIGHT * 0.15,
-    right: SCREEN_WIDTH * 0.25,
-    transform: [{ rotate: '-30deg' }],
+    backgroundColor: 'rgba(237, 233, 254, 0.15)',
+    top: SCREEN_HEIGHT * 0.15,
+    left: SCREEN_WIDTH * 0.25,
+    transform: [{ rotate: '45deg' }],
     borderRadius: 35,
-    opacity: 0.35,
+    opacity: 0.2,
   },
-  geometricShape3: {
+  geometricShape2: {
     position: 'absolute',
     width: 160,
     height: 160,
-    backgroundColor: 'rgba(45, 45, 45, 0.3)',
-    top: SCREEN_HEIGHT * 0.5,
-    left: SCREEN_WIDTH * 0.7,
-    transform: [{ rotate: '60deg' }],
+    backgroundColor: 'rgba(196, 181, 253, 0.12)',
+    bottom: SCREEN_HEIGHT * 0.2,
+    right: SCREEN_WIDTH * 0.3,
+    transform: [{ rotate: '-30deg' }],
     borderRadius: 30,
-    opacity: 0.3,
+    opacity: 0.15,
   },
-  // Flowing organic lines with dark gray
+  // Flowing lines - subtle purple organic curves
   flowLine1: {
     position: 'absolute',
-    width: SCREEN_WIDTH * 0.8,
-    height: 4,
-    backgroundColor: 'rgba(50, 50, 50, 0.6)',
-    top: SCREEN_HEIGHT * 0.12,
-    left: -SCREEN_WIDTH * 0.15,
-    transform: [{ rotate: '25deg' }],
-    borderRadius: 2,
-    opacity: 0.5,
+    width: SCREEN_WIDTH * 0.7,
+    height: 2,
+    backgroundColor: 'rgba(237, 233, 254, 0.25)',
+    top: SCREEN_HEIGHT * 0.2,
+    left: -SCREEN_WIDTH * 0.1,
+    transform: [{ rotate: '20deg' }],
+    borderRadius: 1,
+    opacity: 0.15,
   },
   flowLine2: {
     position: 'absolute',
-    width: SCREEN_WIDTH * 0.7,
-    height: 3.5,
-    backgroundColor: 'rgba(40, 40, 40, 0.55)',
-    bottom: SCREEN_HEIGHT * 0.2,
-    right: -SCREEN_WIDTH * 0.1,
-    transform: [{ rotate: '-35deg' }],
-    borderRadius: 2,
-    opacity: 0.45,
+    width: SCREEN_WIDTH * 0.6,
+    height: 1.5,
+    backgroundColor: 'rgba(196, 181, 253, 0.2)',
+    bottom: SCREEN_HEIGHT * 0.25,
+    right: -SCREEN_WIDTH * 0.05,
+    transform: [{ rotate: '-25deg' }],
+    borderRadius: 1,
+    opacity: 0.12,
   },
   flowLine3: {
     position: 'absolute',
-    width: SCREEN_WIDTH * 0.6,
-    height: 3,
-    backgroundColor: 'rgba(45, 45, 45, 0.5)',
-    top: SCREEN_HEIGHT * 0.5,
-    left: SCREEN_WIDTH * 0.15,
-    transform: [{ rotate: '50deg' }],
-    borderRadius: 2,
-    opacity: 0.4,
-  },
-  flowLine4: {
-    position: 'absolute',
     width: SCREEN_WIDTH * 0.5,
-    height: 2.5,
-    backgroundColor: 'rgba(35, 35, 35, 0.45)',
-    top: SCREEN_HEIGHT * 0.7,
-    right: SCREEN_WIDTH * 0.2,
-    transform: [{ rotate: '-55deg' }],
-    borderRadius: 2,
-    opacity: 0.35,
-  },
-  flowLine5: {
-    position: 'absolute',
-    width: SCREEN_WIDTH * 0.45,
-    height: 2,
-    backgroundColor: 'rgba(30, 30, 30, 0.4)',
-    top: SCREEN_HEIGHT * 0.3,
-    left: SCREEN_WIDTH * 0.5,
-    transform: [{ rotate: '70deg' }],
-    borderRadius: 2,
-    opacity: 0.3,
-  },
-  // Sparkle dots container
-  sparkleContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sparkle: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(80, 80, 80, 0.8)', // Dark gray sparkles
+    height: 1,
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
+    top: SCREEN_HEIGHT * 0.6,
+    left: SCREEN_WIDTH * 0.2,
+    transform: [{ rotate: '40deg' }],
+    borderRadius: 1,
+    opacity: 0.1,
   },
 });
 

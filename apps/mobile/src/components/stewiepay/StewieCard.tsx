@@ -7,7 +7,7 @@ interface StewieCardProps {
   children: React.ReactNode;
   onPress?: () => void;
   gradient?: boolean;
-  gradientColors?: string[];
+  gradientColors?: [string, string, ...string[]];
   style?: ViewStyle;
   elevated?: boolean;
 }
@@ -39,11 +39,10 @@ export const StewieCard: React.FC<StewieCardProps> = ({
     <View style={cardStyle}>
       {gradient && (
         <LinearGradient
-          colors={gradientColors || StewiePayBrand.colors.gradients.primary}
+          colors={(gradientColors || StewiePayBrand.colors.gradients.primary) as [string, string, ...string[]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          opacity={0.1}
+          style={[StyleSheet.absoluteFill, { opacity: 0.1 }]}
         />
       )}
       {children}

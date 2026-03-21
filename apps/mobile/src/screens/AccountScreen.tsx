@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
@@ -39,6 +40,14 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
     totalTransactions: 0,
     totalSpent: 0,
   });
+
+  const kycStatusLabel = (() => {
+    const status = (user as any)?.kycStatus || 'PENDING';
+    if (status === 'VERIFIED') return 'Verified';
+    if (status === 'SUBMITTED') return 'Submitted';
+    if (status === 'REJECTED') return 'Rejected';
+    return 'Not started';
+  })();
 
   useEffect(() => {
     // Load notification preferences from user data if available
@@ -161,27 +170,35 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             style={styles.headerGradient}
           >
             <View style={styles.profileSection}>
-              <View style={styles.avatarContainer}>
-                <StewieText
-                  variant="displaySmall"
-                  color="primary"
-                  weight="black"
-                >
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </StewieText>
-              </View>
+              {(user as any)?.avatarUrl ? (
+                <Image 
+                  source={{ uri: (user as any).avatarUrl }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatarContainer}>
+                  <StewieText
+                    variant="displaySmall"
+                    color="primary"
+                    weight="black"
+                    style={{ color: '#FFFFFF' }}
+                  >
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </StewieText>
+                </View>
+              )}
               <StewieText
                 variant="headlineMedium"
                 color="primary"
                 weight="bold"
-                style={{ marginTop: StewiePayBrand.spacing.md }}
+                style={{ marginTop: StewiePayBrand.spacing.md, color: '#FFFFFF' }}
               >
                 {user?.name || 'User'}
               </StewieText>
               <StewieText
                 variant="bodyMedium"
                 color="primary"
-                style={{ marginTop: StewiePayBrand.spacing.xs, opacity: 0.9 }}
+                style={{ marginTop: StewiePayBrand.spacing.xs, opacity: 0.9, color: '#FFFFFF' }}
               >
                 {user?.email || 'user@stewiepay.local'}
               </StewieText>
@@ -271,6 +288,16 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowSecurity(true);
+              }}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon="document-text-outline"
+              label="Identity Verification"
+              value={kycStatusLabel}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate('KycVerification');
               }}
             />
           </GlassCard>
@@ -468,6 +495,14 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: StewiePayBrand.colors.surface,
   },
   avatarContainer: {
     width: 80,

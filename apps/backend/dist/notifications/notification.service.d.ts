@@ -19,12 +19,20 @@ export declare class NotificationService {
         email: string;
         phone: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        avatarUrl: string | null;
         id: string;
         passwordHash: string;
+        emailVerified: boolean;
+        emailVerifiedAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
         pushToken: string | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: import(".prisma/client").$Enums.KycStatus;
+        kycSubmittedAt: Date | null;
+        kycVerifiedAt: Date | null;
+        kycRejectionReason: string | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     /**
      * Update notification preferences
@@ -32,19 +40,26 @@ export declare class NotificationService {
     updatePreferences(userId: string, preferences: {
         transactions?: boolean;
         limits?: boolean;
-        subscriptions?: boolean;
         cardStatus?: boolean;
     }): Promise<{
         name: string;
         email: string;
         phone: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        avatarUrl: string | null;
         id: string;
         passwordHash: string;
+        emailVerified: boolean;
+        emailVerifiedAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
         pushToken: string | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: import(".prisma/client").$Enums.KycStatus;
+        kycSubmittedAt: Date | null;
+        kycVerifiedAt: Date | null;
+        kycRejectionReason: string | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     /**
      * Notify user of new transaction
@@ -63,22 +78,6 @@ export declare class NotificationService {
      * Notify user of limit exceeded
      */
     notifyLimitExceeded(userId: string, cardId: string, limitType: 'daily' | 'monthly'): Promise<void>;
-    /**
-     * Notify user of subscription renewal
-     */
-    notifySubscriptionRenewal(userId: string, subscription: {
-        merchant: string;
-        amount: number;
-        currency: string;
-    }): Promise<void>;
-    /**
-     * Notify user of upcoming subscription charge
-     */
-    notifyUpcomingSubscription(userId: string, subscription: {
-        merchant: string;
-        amount: number;
-        nextCharge: Date;
-    }): Promise<void>;
     /**
      * Notify user of card status change
      */

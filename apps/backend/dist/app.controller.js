@@ -11,13 +11,20 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppController = void 0;
 const common_1 = require("@nestjs/common");
+const integration_readiness_service_1 = require("./integrations/integration-readiness.service");
 let AppController = class AppController {
+    constructor(integrationReadiness) {
+        this.integrationReadiness = integrationReadiness;
+    }
     getHealth() {
         return {
             status: 'ok',
             service: 'backend',
             timestamp: new Date().toISOString()
         };
+    }
+    getIntegrationHealth() {
+        return this.integrationReadiness.getReadinessReport();
     }
 };
 exports.AppController = AppController;
@@ -27,7 +34,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AppController.prototype, "getHealth", null);
+__decorate([
+    (0, common_1.Get)('integrations'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AppController.prototype, "getIntegrationHealth", null);
 exports.AppController = AppController = __decorate([
-    (0, common_1.Controller)('health')
+    (0, common_1.Controller)('health'),
+    __metadata("design:paramtypes", [integration_readiness_service_1.IntegrationReadinessService])
 ], AppController);
 //# sourceMappingURL=app.controller.js.map

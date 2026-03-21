@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, RefreshControl, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, RefreshControl, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Text } from '../components/Text';
 import { PremiumCard } from '../components/PremiumCard';
@@ -35,6 +35,20 @@ export const CardsScreen = ({ navigation }: any) => {
   }, [navigation]);
 
   const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('CreateCard');
   };

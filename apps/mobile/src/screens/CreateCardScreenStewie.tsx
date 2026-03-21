@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 import * as Haptics from 'expo-haptics';
 import { CardsAPI } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { StewieCard } from '../components/stewiepay/StewieCard';
 import { StewieText } from '../components/stewiepay/StewieText';
@@ -38,14 +39,6 @@ const CARD_TYPES = [
     gradient: StewiePayBrand.colors.gradients.secondary,
   },
   {
-    value: 'SUBSCRIPTION_ONLY',
-    label: 'Subscription Only',
-    icon: 'repeat-outline' as keyof typeof Ionicons.glyphMap,
-    desc: 'Built for recurring payments. Never worry about auto-renewals.',
-    color: StewiePayBrand.colors.success,
-    gradient: StewiePayBrand.colors.gradients.success,
-  },
-  {
     value: 'ADS_ONLY',
     label: 'Ads Only',
     icon: 'megaphone-outline' as keyof typeof Ionicons.glyphMap,
@@ -55,16 +48,35 @@ const CARD_TYPES = [
   },
 ];
 
-export const CreateCardScreenStewie = ({ navigation, route }: any) => {
+export const CreateCardScreenStewie = ({ navigation }: any) => {
+  const { user } = useAuth();
   const [selectedType, setSelectedType] = useState('PERMANENT');
   const [limits, setLimits] = useState({ daily: '', monthly: '', perTxn: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const orgId = route?.params?.orgId;
 
   const selectedTypeConfig = CARD_TYPES.find((t) => t.value === selectedType);
 
+  const assertKycVerified = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus === 'VERIFIED') return true;
+    const message =
+      kycStatus === 'SUBMITTED'
+        ? 'Your KYC is under review. Card creation unlocks after approval.'
+        : kycStatus === 'REJECTED'
+          ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+          : 'Please complete KYC to create cards.';
+    Alert.alert('KYC required', message, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+    ]);
+    return false;
+  };
+
   const handleCreate = async () => {
+    if (!assertKycVerified()) {
+      return;
+    }
     setLoading(true);
     setError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -73,16 +85,19 @@ export const CreateCardScreenStewie = ({ navigation, route }: any) => {
       const payload: any = {
         type: selectedType,
       };
-      if (orgId) payload.orgId = orgId;
       if (limits.daily) payload.limitDaily = parseInt(limits.daily);
       if (limits.monthly) payload.limitMonthly = parseInt(limits.monthly);
       if (limits.perTxn) payload.limitPerTxn = parseInt(limits.perTxn);
 
-      await CardsAPI.create(payload);
+      console.log('[CreateCard] Creating card with payload:', payload);
+      const response = await CardsAPI.create(payload);
+      console.log('[CreateCard] Card created successfully:', response.data);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to create card');
+      console.error('[CreateCard] Failed to create card:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'Failed to create card';
+      setError(errorMessage);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);

@@ -12,12 +12,21 @@ export const SignupScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('user@stewiepay.local');
   const [password, setPassword] = useState('UserPass123!');
 
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   const onSubmit = async () => {
+    if (!isValidEmail(email)) {
+      return;
+    }
     const success = await signup(name, email, password);
     if (success) {
-      // Navigation will happen automatically via RequireAuth
+      navigation.navigate('VerifyEmailPending', { email: email.trim() });
     }
   };
+
+  const emailValid = email ? isValidEmail(email) : false;
+  const canSubmit = name && emailValid && password;
 
   return (
     <Screen style={{ justifyContent: 'center' }}>
@@ -37,10 +46,22 @@ export const SignupScreen = ({ navigation }: any) => {
           placeholder="Email"
           placeholderTextColor={colors.muted as string}
           autoCapitalize="none"
-          style={[styles.input, { borderColor: colors.border, color: colors.text, borderRadius: radius.md }]}
+          style={[
+            styles.input,
+            {
+              borderColor: email && !emailValid ? colors.danger : colors.border,
+              color: colors.text,
+              borderRadius: radius.md
+            }
+          ]}
           value={email}
           onChangeText={setEmail}
         />
+        {email && !emailValid ? (
+          <Text style={{ color: colors.danger }}>
+            Enter a valid email (example: name@gmail.com).
+          </Text>
+        ) : null}
         <TextInput
           placeholder="Password"
           placeholderTextColor={colors.muted as string}
@@ -56,7 +77,7 @@ export const SignupScreen = ({ navigation }: any) => {
             styles.button,
             { backgroundColor: colors.accent, borderRadius: radius.lg, padding: spacing(3), alignItems: 'center' }
           ]}
-          disabled={loading}
+          disabled={loading || !canSubmit}
         >
           {loading ? <ActivityIndicator color="#0b1224" /> : <Text style={{ color: '#0b1224', fontWeight: '700' }}>Create account</Text>}
         </TouchableOpacity>

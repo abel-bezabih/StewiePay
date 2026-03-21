@@ -35,7 +35,7 @@ export const PremiumCard = ({
   onPress
 }: Props) => {
   const { spacing, radius } = useTheme();
-  const gradient = cardGradients[type] || cardGradients.PERMANENT;
+  const gradient = (cardGradients[type] || cardGradients.PERMANENT) as [string, string];
   const isFrozen = status === 'FROZEN';
 
   const handlePress = () => {
@@ -52,7 +52,7 @@ export const PremiumCard = ({
     <Pressable onPress={handlePress} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
       <View style={[styles.shadow, { marginBottom: spacing(3) }]}>
         <LinearGradient
-          colors={isFrozen ? ['#4B5563', '#374151'] : gradient}
+          colors={isFrozen ? (['#4B5563', '#374151'] as [string, string]) : gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -187,6 +187,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5
   }
 });
+
+
+
+
+
+
+
+
 
 
 

@@ -1,19 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, FlatList, TouchableOpacity, Text, TextInput, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, FlatList, TouchableOpacity, Text, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { BrandButton } from '../components/BrandButton';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { TopUpAPI } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
+import { useAuth } from '../contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
 
 export const TopUpScreenPremium = () => {
+  const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [amount, setAmount] = useState('10000');
   const [reference, setReference] = useState('demo-topup');
   const [topups, setTopups] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedTopUpId, setExpandedTopUpId] = useState<string | null>(null);
+  const [reconciliationByTopUp, setReconciliationByTopUp] = useState<Record<string, any>>({});
+  const [reconLoadingTopUpId, setReconLoadingTopUpId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +45,20 @@ export const TopUpScreenPremium = () => {
   };
 
   const initiate = async () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Top-up will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to top up your account.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await TopUpAPI.initiate({ amount: Number(amount), currency: 'ETB', reference });
@@ -61,6 +82,26 @@ export const TopUpScreenPremium = () => {
     }
   };
 
+  const loadReconciliation = async (topUpId: string) => {
+    setReconLoadingTopUpId(topUpId);
+    try {
+      const resp = await TopUpAPI.reconciliation(topUpId);
+      setReconciliationByTopUp((prev) => ({ ...prev, [topUpId]: resp.data }));
+    } catch (error) {
+      console.error('Failed to load top-up reconciliation:', error);
+    } finally {
+      setReconLoadingTopUpId(null);
+    }
+  };
+
+  const toggleReconciliation = async (topUpId: string) => {
+    const next = expandedTopUpId === topUpId ? null : topUpId;
+    setExpandedTopUpId(next);
+    if (next && !reconciliationByTopUp[topUpId]) {
+      await loadReconciliation(topUpId);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'COMPLETED':
@@ -71,6 +112,38 @@ export const TopUpScreenPremium = () => {
         return StewiePayBrand.colors.error;
       default:
         return StewiePayBrand.colors.textMuted;
+    }
+  };
+
+  const getFundingStateColor = (state?: string) => {
+    switch (state) {
+      case 'CARD_LOADED':
+        return StewiePayBrand.colors.success;
+      case 'FAILED':
+        return StewiePayBrand.colors.error;
+      case 'ISSUER_PENDING':
+      case 'PSP_CONFIRMED':
+      case 'PSP_PENDING':
+        return StewiePayBrand.colors.warning;
+      default:
+        return StewiePayBrand.colors.textMuted;
+    }
+  };
+
+  const getFundingStateLabel = (state?: string) => {
+    switch (state) {
+      case 'PSP_PENDING':
+        return 'PSP pending';
+      case 'PSP_CONFIRMED':
+        return 'PSP confirmed';
+      case 'ISSUER_PENDING':
+        return 'Issuer processing';
+      case 'CARD_LOADED':
+        return 'Card loaded';
+      case 'FAILED':
+        return 'Settlement failed';
+      default:
+        return state || 'Unknown';
     }
   };
 
@@ -134,7 +207,7 @@ export const TopUpScreenPremium = () => {
           
           {loading && topups.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={StewiePayBrand.colors.primary} />
+              <ActivityIndicator size={32} color={StewiePayBrand.colors.primary} />
               <Text style={{ color: StewiePayBrand.colors.textMuted, marginTop: StewiePayBrand.spacing.md }}>
                 Loading top-ups...
               </Text>
@@ -157,7 +230,7 @@ export const TopUpScreenPremium = () => {
                   duration={400}
                 >
                   <TouchableOpacity
-                    onPress={() => verify(item.id)}
+                    onPress={() => toggleReconciliation(item.id)}
                     style={styles.topUpCard}
                   >
                     <View style={styles.topUpContent}>
@@ -191,8 +264,61 @@ export const TopUpScreenPremium = () => {
                             {item.status}
                           </Text>
                         </View>
+                        <View
+                          style={{
+                            marginTop: 6,
+                            backgroundColor: `${getFundingStateColor(item.fundingState)}20`,
+                            borderWidth: 1,
+                            borderColor: getFundingStateColor(item.fundingState),
+                            borderRadius: 12,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4
+                          }}
+                        >
+                          <Text style={{
+                            color: getFundingStateColor(item.fundingState),
+                            fontSize: 12,
+                            fontWeight: '600'
+                          }}>
+                            {getFundingStateLabel(item.fundingState)}
+                          </Text>
+                        </View>
                       </View>
                     </View>
+                    {expandedTopUpId === item.id && (
+                      <View style={styles.reconciliationSection}>
+                        {reconLoadingTopUpId === item.id ? (
+                          <Text style={{ color: StewiePayBrand.colors.textMuted }}>Loading settlement timeline...</Text>
+                        ) : (
+                          <>
+                            {(reconciliationByTopUp[item.id]?.events || []).length === 0 ? (
+                              <Text style={{ color: StewiePayBrand.colors.textMuted }}>No settlement events yet.</Text>
+                            ) : (
+                              (reconciliationByTopUp[item.id]?.events || []).map((event: any) => (
+                                <View key={event.id} style={styles.reconciliationRow}>
+                                  <Text style={{ color: StewiePayBrand.colors.textPrimary, fontWeight: '700', fontSize: 12 }}>
+                                    {getFundingStateLabel(event.toState)} • {event.source}
+                                  </Text>
+                                  <Text style={{ color: StewiePayBrand.colors.textMuted, fontSize: 11 }}>
+                                    {new Date(event.createdAt).toLocaleString()}
+                                  </Text>
+                                  {event.message ? (
+                                    <Text style={{ color: StewiePayBrand.colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                                      {event.message}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              ))
+                            )}
+                            {item.status === 'PENDING' && (
+                              <TouchableOpacity onPress={() => verify(item.id)} style={styles.verifyButton}>
+                                <Text style={{ color: '#0B1224', fontWeight: '700', fontSize: 12 }}>Verify now</Text>
+                              </TouchableOpacity>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </Animatable.View>
               ))}
@@ -261,6 +387,23 @@ const styles = StyleSheet.create({
   },
   topUpRight: {
     alignItems: 'flex-end'
+  },
+  reconciliationSection: {
+    marginTop: StewiePayBrand.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: StewiePayBrand.colors.surfaceVariant,
+    paddingTop: StewiePayBrand.spacing.sm
+  },
+  reconciliationRow: {
+    marginBottom: 8
+  },
+  verifyButton: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: StewiePayBrand.colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8
   }
 });
 

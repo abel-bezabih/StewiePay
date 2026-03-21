@@ -28,7 +28,7 @@ interface Card {
   status: string;
   balance: number;
   currency: string;
-  gradient?: string[];
+  gradient?: [string, string];
 }
 
 interface CardStackProps {
@@ -213,7 +213,7 @@ export const CardStack: React.FC<CardStackProps> = ({
                   {
                     backgroundColor: isActive
                       ? StewiePayBrand.colors.primary
-                      : StewiePayBrand.colors.onSurfaceVariant,
+                      : StewiePayBrand.colors.surfaceVariant,
                     width: isActive ? 24 : 8,
                     opacity: isActive ? 1 : 0.5
                   }

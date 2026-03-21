@@ -1,10 +1,8 @@
-import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
-
-// Premium dark theme for StewiePay (Revolut/Wise style)
+// Lightweight Paper-like theme objects (no react-native-paper dependency)
 export const paperDarkTheme = {
-  ...MD3DarkTheme,
+  dark: true,
+  roundness: 16,
   colors: {
-    ...MD3DarkTheme.colors,
     primary: '#60A5FA', // Electric blue accent
     primaryContainer: '#1E3A5F',
     secondary: '#764BA2',
@@ -36,16 +34,15 @@ export const paperDarkTheme = {
       level2: '#1F2937',
       level3: '#374151',
       level4: '#4B5563',
-      level5: '#6B7280'
-    }
+      level5: '#6B7280',
+    },
   },
-  roundness: 16
 };
 
 export const paperLightTheme = {
-  ...MD3LightTheme,
+  dark: false,
+  roundness: 16,
   colors: {
-    ...MD3LightTheme.colors,
     primary: '#3B82F6',
     primaryContainer: '#DBEAFE',
     secondary: '#764BA2',
@@ -77,11 +74,18 @@ export const paperLightTheme = {
       level2: '#F9FAFB',
       level3: '#F3F4F6',
       level4: '#E5E7EB',
-      level5: '#D1D5DB'
-    }
+      level5: '#D1D5DB',
+    },
   },
-  roundness: 16
 };
+
+
+
+
+
+
+
+
 
 
 

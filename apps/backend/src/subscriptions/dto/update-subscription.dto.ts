@@ -7,21 +7,19 @@ export class UpdateSubscriptionDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
-  amountHint?: number;
+  @Min(0)
+  amountHint?: number | null;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @IsOptional()
   @IsDateString()
-  nextExpectedCharge?: string;
+  nextExpectedCharge?: string | null;
 
   @IsOptional()
   @IsDateString()
-  lastChargeAt?: string;
+  lastChargeAt?: string | null;
 }
-
-
-
-
-
-
 

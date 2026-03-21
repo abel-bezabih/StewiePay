@@ -79,7 +79,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
       >
         {/* Header with greeting */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-          <StewieText variant="headlineLarge" color="primary" weight="black">
+          <StewieText variant="headlineLarge" color="primary" weight="black" style={{ color: StewiePayBrand.colors.primary }}>
             {user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Welcome'}
           </StewieText>
           <StewieText variant="bodyMedium" color="muted" style={{ marginTop: StewiePayBrand.spacing.xs }}>
@@ -91,34 +91,11 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
         <Animatable.View animation="fadeInUp" delay={50} duration={600}>
           <MenuSection title="Insights">
             <MenuItem
-              icon="stats-chart-outline"
-              label="Analytics"
+              icon="receipt-outline"
+              label="Activities"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate('Analytics');
-              }}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon="wallet-outline"
-              label="Budgets"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate('Budgets');
-              }}
-            />
-          </MenuSection>
-        </Animatable.View>
-
-        {/* More Section */}
-        <Animatable.View animation="fadeInUp" delay={150} duration={600}>
-          <MenuSection title="More">
-            <MenuItem
-              icon="repeat-outline"
-              label="Subscriptions"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate('Subscriptions');
+                navigation.navigate('Activities');
               }}
             />
           </MenuSection>

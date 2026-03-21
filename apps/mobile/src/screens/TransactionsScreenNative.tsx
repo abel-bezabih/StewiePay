@@ -112,7 +112,7 @@ export const TransactionsScreenNative = ({ navigation, route }: any) => {
       {/* Transactions List */}
       {loading && txns.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667EEA" />
+          <ActivityIndicator size={32} color="#667EEA" />
           <Text style={styles.loadingText}>Loading transactions...</Text>
         </View>
       ) : (

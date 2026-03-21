@@ -9,7 +9,9 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: true
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   })
 });
 
@@ -96,24 +98,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Navigate to transaction detail
       } else if (data?.type === 'limit_warning' || data?.type === 'limit_exceeded') {
         // Navigate to card detail
-      } else if (data?.type === 'subscription_renewal') {
-        // Navigate to subscriptions
       }
     });
 
     return () => {
-      // Remove listeners - use remove() method (newer API) or removeNotificationSubscription (older API)
-      if (notificationListener && typeof notificationListener.remove === 'function') {
-        notificationListener.remove();
-      } else if (Notifications.removeNotificationSubscription) {
-        Notifications.removeNotificationSubscription(notificationListener);
-      }
-      
-      if (responseListener && typeof responseListener.remove === 'function') {
-        responseListener.remove();
-      } else if (Notifications.removeNotificationSubscription) {
-        Notifications.removeNotificationSubscription(responseListener);
-      }
+      notificationListener.remove();
+      responseListener.remove();
     };
   }, [user]);
 

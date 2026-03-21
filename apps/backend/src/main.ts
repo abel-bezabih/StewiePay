@@ -2,9 +2,43 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/http-exception.filter';
+import { json, urlencoded } from 'express';
+import * as Sentry from '@sentry/node';
+
+function parseOriginList(value?: string) {
+  return new Set(
+    (value || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
+}
+
+function isAllowedBySuffix(origin: string, suffixes: string[]) {
+  try {
+    const host = new URL(origin).hostname;
+    return suffixes.some((suffix) => host.endsWith(suffix));
+  } catch {
+    return false;
+  }
+}
 
 async function bootstrap() {
+  const sentryDsn = process.env.SENTRY_DSN;
+  if (sentryDsn) {
+    Sentry.init({
+      dsn: sentryDsn,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1)
+    });
+  }
+
   const app = await NestFactory.create(AppModule);
+  
+  // Increase body size limit for image uploads (10MB should be enough for base64 images)
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ limit: '10mb', extended: true }));
+  
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
@@ -14,9 +48,44 @@ async function bootstrap() {
     })
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  if (sentryDsn) {
+    const expressApp = app.getHttpAdapter().getInstance();
+    Sentry.setupExpressErrorHandler(expressApp);
+  }
+
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:8081',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:8081'
+  ];
+  const allowlist = parseOriginList(process.env.CORS_ORIGIN_ALLOWLIST);
+  if (!allowlist.size) {
+    defaultOrigins.forEach((origin) => allowlist.add(origin));
+    const backendPublicUrl = process.env.BACKEND_PUBLIC_URL?.trim();
+    if (backendPublicUrl) allowlist.add(backendPublicUrl);
+  }
+
+  const allowNgrok = (process.env.CORS_ALLOW_NGROK ?? 'true') === 'true';
+  const allowNgrokSuffixes = (process.env.CORS_NGROK_SUFFIXES ?? '.ngrok-free.app,.ngrok-free.dev')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   app.enableCors({
-    origin: '*',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowlist.has(origin)) return callback(null, true);
+      if (allowNgrok && isAllowedBySuffix(origin, allowNgrokSuffixes)) {
+        return callback(null, true);
+      }
+      // Do not throw for disallowed origins; simply omit CORS headers.
+      // Browser clients from blocked origins will be rejected by CORS policy without a server 500.
+      return callback(null, false);
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   });

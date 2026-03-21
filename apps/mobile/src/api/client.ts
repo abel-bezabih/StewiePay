@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import { getBackendIP, clearCachedIP } from '../utils/networkDetector';
 
 // Determine API base URL
 // 
@@ -9,67 +10,78 @@ import { Platform } from 'react-native';
 // - No manual IP needed - uses domain name that works everywhere
 // 
 // DEVELOPMENT (local testing only):
-// - For iOS Simulator: localhost works fine
-// - For physical device on same network: needs Mac's IP address
-// - This manual IP is ONLY for local dev - users never see this!
+// - Automatically detects Mac IP for WiFi and Personal Hotspot
+// - Works seamlessly when switching between networks
+// - Falls back to localhost for simulator
 //
-function getApiBase(): string {
-  // ============================================
-  // PRODUCTION: Use environment variable
-  // ============================================
-  // In production, set EXPO_PUBLIC_API_BASE=https://api.stewiepay.com
-  // This works for ALL users worldwide - no manual IP needed!
-  // Example setup:
-  //   - Development: EXPO_PUBLIC_API_BASE=http://localhost:3000/api
-  //   - Staging: EXPO_PUBLIC_API_BASE=https://api-staging.stewiepay.com
-  //   - Production: EXPO_PUBLIC_API_BASE=https://api.stewiepay.com
-  if (process.env.EXPO_PUBLIC_API_BASE) {
-    return process.env.EXPO_PUBLIC_API_BASE;
+let API_BASE: string = 'http://localhost:3000/api'; // Default fallback
+let isInitializing = false;
+let isInitialized = false; // Track if initialization completed
+let initPromise: Promise<void> | null = null;
+
+/**
+ * Initialize API base URL with automatic network detection
+ * This will automatically find your Mac's IP whether on WiFi or Personal Hotspot
+ */
+async function initializeApiBase(): Promise<void> {
+  if (isInitializing && initPromise) {
+    return initPromise;
   }
 
-  // ============================================
-  // DEVELOPMENT ONLY: Local IP for physical device
-  // ============================================
-  // This section is ONLY used during local development
-  // When you deploy to production, users get the EXPO_PUBLIC_API_BASE URL above
-  // Manual IP is ONLY needed when testing on your physical iPhone during development
-  if (Platform.OS === 'ios' && __DEV__) {
-    // ============================================
-    // LOCAL DEVELOPMENT: Physical Device Testing
-    // ============================================
-    // This is ONLY for testing on your physical iPhone during development
-    // Users in production never use this - they use EXPO_PUBLIC_API_BASE
-    // 
-    // Add your Mac's IP addresses here (for WiFi and Hotspot)
-    // To find your Mac's IP: 
-    //   1. Open Terminal
-    //   2. Run: ifconfig | grep "inet " | grep -v 127.0.0.1
-    //   3. Look for your WiFi or Hotspot IP (usually starts with 192.168.x.x or 172.20.x.x)
-    //   4. Update the IPs below
-    const possibleIPs = [
-      // WiFi IP - Current network IP
-      '172.20.10.8',  // Current Mac IP (from ifconfig - Personal Hotspot)
-      
-      // Previous IPs (fallback if network changes)
-      '172.16.226.101',  // Previous WiFi IP
-      
-      // Add more IPs to try (will try in order)
-      // '192.168.1.XXX',  // Alternative WiFi IP if needed
-    ];
-    
-    // Try each IP in order
-    for (const ip of possibleIPs) {
-      if (ip) {
-        return `http://${ip}:3000/api`;
+  isInitializing = true;
+  initPromise = (async () => {
+    try {
+      // ============================================
+      // PRODUCTION: Use environment variable
+      // ============================================
+      if (process.env.EXPO_PUBLIC_API_BASE) {
+        API_BASE = process.env.EXPO_PUBLIC_API_BASE;
+        console.log('[API] Using production API:', API_BASE);
+        return;
       }
-    }
-  }
 
-  // Default to localhost for simulator/web
-  return 'http://localhost:3000/api';
+      // ============================================
+      // DEVELOPMENT: Auto-detect backend IP
+      // ============================================
+      if (__DEV__) {
+        // For simulator, use localhost
+        if (Platform.OS === 'ios' || Platform.OS === 'android') {
+          // Physical device - auto-detect IP
+          const detectedIP = await getBackendIP();
+          API_BASE = `http://${detectedIP}:3000/api`;
+          api.defaults.baseURL = API_BASE;
+          console.log('[API] Auto-detected backend IP:', detectedIP);
+        } else {
+          // Simulator/Web - use localhost
+          API_BASE = 'http://localhost:3000/api';
+          api.defaults.baseURL = API_BASE;
+          console.log('[API] Using localhost (simulator/web)');
+        }
+      } else {
+        // Production fallback
+        API_BASE = 'http://localhost:3000/api';
+        api.defaults.baseURL = API_BASE;
+      }
+      isInitialized = true;
+    } catch (error) {
+      console.error('[API] Error initializing API base:', error);
+      API_BASE = 'http://localhost:3000/api'; // Safe fallback
+      api.defaults.baseURL = API_BASE;
+      isInitialized = true; // Mark as initialized even on error to prevent retries
+    } finally {
+      isInitializing = false;
+    }
+  })();
+
+  return initPromise;
 }
 
-const API_BASE = getApiBase();
+// Initialize on module load (non-blocking)
+if (__DEV__) {
+  initializeApiBase().catch(() => {
+    // Ignore initialization errors, will retry on first request
+  });
+}
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
@@ -89,10 +101,31 @@ export const api = axios.create({
   timeout: 30_000 // Increased timeout for debugging
 });
 
-// Log API base for debugging
-if (__DEV__) {
-  console.log('API Base URL:', API_BASE);
+// Update API base URL when it changes
+export function updateApiBase(newBase: string) {
+  API_BASE = newBase;
+  api.defaults.baseURL = newBase;
+  if (__DEV__) {
+    console.log('[API] Updated API base URL:', newBase);
+  }
 }
+
+// Ensure API is initialized before first request
+api.interceptors.request.use(async (config) => {
+  // Initialize API base if not already done (only once)
+  if (!process.env.EXPO_PUBLIC_API_BASE && __DEV__ && !isInitialized) {
+    if (isInitializing && initPromise) {
+      await initPromise;
+    } else if (!isInitializing) {
+      await initializeApiBase();
+    }
+  }
+  
+  // Use the current API_BASE (don't let config override it)
+  config.baseURL = API_BASE;
+  
+  return config;
+});
 
 api.interceptors.request.use((config) => {
   if (accessToken) {
@@ -136,33 +169,53 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
       
-      if (error.code === 'ECONNABORTED') {
-        console.error('[API] Request timeout:', {
-          url: error.config?.url,
-          baseURL: error.config?.baseURL,
-          timeout: error.config?.timeout,
-        });
-        console.error('[API] Troubleshooting timeout issues:');
-        console.error('  1. Check backend is running: cd apps/backend && yarn start:dev');
-        console.error('  2. Verify Mac IP address: ifconfig | grep "inet " | grep -v 127.0.0.1');
-        console.error('  3. Update IP in apps/mobile/src/api/client.ts if it changed');
-        console.error('  4. Ensure device and Mac are on same WiFi/Hotspot');
-        console.error('  5. Test connectivity: curl http://YOUR_IP:3000/api/health');
-        console.error('  6. Check Mac Firewall: System Settings > Network > Firewall');
-      } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-        // Network connectivity error - provide helpful troubleshooting
-        console.error('[API] Network Error - Cannot connect to backend:', {
-          attemptedURL: error.config?.baseURL,
-          error: error.message,
-          troubleshooting: [
-            '1. Check backend is running: cd apps/backend && yarn start:dev',
-            '2. Verify Mac IP address: ifconfig | grep "inet " | grep -v 127.0.0.1',
-            '3. Update IP in apps/mobile/src/api/client.ts if it changed',
-            '4. Ensure device and Mac are on same WiFi/Hotspot',
-            '5. Check Mac Firewall: System Settings > Network > Firewall',
-            '6. Try: Backend should listen on 0.0.0.0 (check apps/backend/src/main.ts)',
-          ],
-        });
+      // Network errors - try to auto-detect new IP
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error') || error.code === 'ECONNABORTED') {
+        const originalRequest = error.config;
+        
+        // Only retry once per request to avoid infinite loops
+        if (!originalRequest._retryNetwork && __DEV__ && Platform.OS !== 'web') {
+          originalRequest._retryNetwork = true;
+          
+          console.log('[API] Network error detected, attempting to find new backend IP...');
+          
+          // Clear cached IP and find new one
+          await clearCachedIP();
+          const newIP = await getBackendIP();
+          
+          if (newIP && newIP !== 'localhost') {
+            // Update API base and retry request
+            const oldBase = API_BASE;
+            API_BASE = `http://${newIP}:3000/api`;
+            api.defaults.baseURL = API_BASE;
+            
+            console.log(`[API] Found new backend IP: ${newIP}, retrying request...`);
+            
+            // Retry the original request with new base URL
+            originalRequest.baseURL = API_BASE;
+            return api(originalRequest);
+          }
+        }
+        
+        // Log troubleshooting info
+        if (error.code === 'ECONNABORTED') {
+          console.error('[API] Request timeout:', {
+            url: error.config?.url,
+            baseURL: error.config?.baseURL,
+            timeout: error.config?.timeout,
+          });
+        } else {
+          console.error('[API] Network Error - Cannot connect to backend:', {
+            attemptedURL: error.config?.baseURL,
+            error: error.message,
+            troubleshooting: [
+              '1. Check backend is running: cd apps/backend && yarn start:dev',
+              '2. Ensure device and Mac are on same WiFi/Hotspot',
+              '3. Check Mac Firewall: System Settings > Network > Firewall',
+              '4. The app will automatically detect your Mac IP',
+            ],
+          });
+        }
       } else if (error.message && !isAuthMe) {
         console.error('[API] Request error:', {
           message: error.message,
@@ -220,6 +273,15 @@ export const AuthAPI = {
   },
   logout() {
     return api.post('/auth/logout', { refreshToken });
+  },
+  forgotPassword(email: string) {
+    return api.post('/auth/forgot-password', { email });
+  },
+  resetPassword(token: string, newPassword: string) {
+    return api.post('/auth/reset-password', { token, newPassword });
+  },
+  resendVerification(email: string) {
+    return api.post('/auth/resend-verification', { email });
   }
 };
 
@@ -251,12 +313,9 @@ export const CardsAPI = {
   updateTimeWindow(id: string, payload: any) {
     return api.patch(`/cards/${id}/time-window`, payload);
   },
-  updateMerchantLocks(id: string, payload: any) {
-    return api.patch(`/cards/${id}/merchant-locks`, payload);
+  updateLimits(id: string, payload: { limitDaily?: number | null; limitMonthly?: number | null; limitPerTxn?: number | null }) {
+    return api.patch(`/cards/${id}/limits`, payload);
   },
-  getMccCategories() {
-    return api.get('/cards/mcc-categories');
-  }
 };
 
 export const TransactionsAPI = {
@@ -268,6 +327,7 @@ export const TransactionsAPI = {
     minAmount?: number;
     maxAmount?: number;
     search?: string;
+    status?: 'AUTHORIZED' | 'SETTLED' | 'DECLINED';
   }) {
     const params: any = {};
     if (cardId) params.cardId = cardId;
@@ -293,6 +353,39 @@ export const TopUpAPI = {
   },
   verify(payload: any) {
     return api.post('/topups/verify', payload);
+  },
+  reconciliation(topUpId: string) {
+    return api.get(`/topups/${topUpId}/reconciliation`);
+  }
+};
+
+export const SubscriptionsAPI = {
+  list(params?: { cardId?: string }) {
+    return api.get('/subscriptions', { params });
+  },
+  create(payload: {
+    cardId: string;
+    merchant: string;
+    amountHint?: number;
+    currency?: string;
+    nextExpectedCharge?: string;
+  }) {
+    return api.post('/subscriptions', payload);
+  },
+  update(
+    id: string,
+    payload: {
+      merchant?: string;
+      amountHint?: number | null;
+      currency?: string;
+      nextExpectedCharge?: string | null;
+      lastChargeAt?: string | null;
+    }
+  ) {
+    return api.patch(`/subscriptions/${id}`, payload);
+  },
+  remove(id: string) {
+    return api.delete(`/subscriptions/${id}`);
   }
 };
 
@@ -302,33 +395,6 @@ export const AnalyticsAPI = {
   },
   spendByCategory() {
     return api.get('/analytics/spend-by-category');
-  },
-  categoryTrends(months?: number) {
-    return api.get('/analytics/category-trends', { params: { months } });
-  },
-  topCategories(limit?: number) {
-    return api.get('/analytics/top-categories', { params: { limit } });
-  },
-  insights() {
-    return api.get('/analytics/insights');
-  }
-};
-
-export const SubscriptionsAPI = {
-  list() {
-    return api.get('/subscriptions');
-  },
-  listForCard(cardId: string) {
-    return api.get(`/subscriptions/card/${cardId}`);
-  },
-  create(payload: any) {
-    return api.post('/subscriptions', payload);
-  },
-  update(id: string, payload: any) {
-    return api.patch(`/subscriptions/${id}`, payload);
-  },
-  delete(id: string) {
-    return api.delete(`/subscriptions/${id}`);
   }
 };
 
@@ -339,36 +405,15 @@ export const NotificationsAPI = {
   updatePreferences(preferences: {
     transactions?: boolean;
     limits?: boolean;
-    subscriptions?: boolean;
     cardStatus?: boolean;
+    email?: boolean;
   }) {
     return api.patch('/notifications/preferences', preferences);
   }
 };
 
-export const BudgetsAPI = {
-  list() {
-    return api.get('/budgets');
-  },
-  create(payload: any) {
-    return api.post('/budgets', payload);
-  },
-  update(id: string, payload: any) {
-    return api.patch(`/budgets/${id}`, payload);
-  },
-  delete(id: string) {
-    return api.delete(`/budgets/${id}`);
-  },
-  getProgress() {
-    return api.get('/budgets/progress');
-  },
-  getProgressById(id: string) {
-    return api.get(`/budgets/${id}/progress`);
-  }
-};
-
 export const UserAPI = {
-  updateProfile(payload: { name?: string; email?: string; phone?: string }) {
+  updateProfile(payload: { name?: string; email?: string; phone?: string; avatarUrl?: string }) {
     return api.patch('/users/me', payload);
   },
   changePassword(payload: { currentPassword: string; newPassword: string }) {
@@ -376,11 +421,33 @@ export const UserAPI = {
   },
   getAccountStats() {
     return api.get('/users/me/stats');
-  }
+  },
+  uploadAvatar(base64Image: string) {
+    // Upload base64 image to backend, which will upload to Cloudinary
+    return api.post('/users/upload-avatar', { image: base64Image });
+  },
+  submitKyc(payload: {
+    documentType: 'passport' | 'national_id' | 'driver_license';
+    country: string;
+    documentFront: string;
+    documentBack?: string;
+    selfie: string;
+  }) {
+    return api.post('/users/kyc/submit', payload);
+  },
+  getKycStatus() {
+    return api.get('/users/kyc/status');
+  },
+  getKycReviews(
+    userId: string,
+    params?: {
+      limit?: number;
+      cursor?: string;
+      status?: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+    }
+  ) {
+    return api.get(`/users/kyc/${userId}/reviews`, { params });
+  },
 };
-
-
-
-
 
 

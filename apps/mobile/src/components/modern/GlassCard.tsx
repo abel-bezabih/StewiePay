@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StewiePayBrand } from '../../brand/StewiePayBrand';
@@ -14,7 +14,7 @@ try {
 
 interface GlassCardProps extends TouchableOpacityProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   elevated?: boolean;
   intensity?: number;
   tint?: 'light' | 'dark' | 'default';
@@ -57,20 +57,19 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         style={StyleSheet.absoluteFill}
       />
       
-      {/* Beautiful gradient overlay for elegance and depth - light gray theme */}
+      {/* Subtle gradient overlay for depth */}
       <LinearGradient
         colors={[
-          'rgba(203, 213, 225, 0.2)', 
-          'rgba(209, 213, 219, 0.18)', 
-          'rgba(229, 231, 235, 0.12)',
-          'rgba(243, 244, 246, 0.08)' // Even more visible gray gradient
+          'rgba(255, 255, 255, 0.95)', 
+          'rgba(255, 255, 255, 0.98)', 
+          'rgba(255, 255, 255, 1)',
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       
-      {/* Subtle primary color accent overlay */}
+      {/* Subtle overlay */}
       <View style={styles.overlay} />
       
       {/* Content */}
@@ -111,11 +110,10 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: StewiePayBrand.radius.xl,
     overflow: 'hidden',
-    backgroundColor: 'rgba(209, 213, 219, 0.92)', // Even more visible light gray background
-    borderWidth: 1.5,
-    borderColor: 'rgba(156, 163, 175, 0.5)', // Even more visible light gray border
-    // Beautiful glassmorphic appearance with light gray tint
-    // Creates a premium, modern look with elegant contrast
+    backgroundColor: '#FFFFFF', // White background for boxes
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.8)', // Subtle light gray border
+    // Clean white boxes with subtle borders
   },
   elevated: {
     ...StewiePayBrand.shadows.lg,
@@ -127,7 +125,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(156, 163, 175, 0.1)', // Even more visible light gray tint
+    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Subtle white overlay
   },
   content: {
     padding: StewiePayBrand.spacing.md,

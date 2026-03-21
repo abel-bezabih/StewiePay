@@ -1,6 +1,6 @@
 // @ts-nocheck - Premium screen not in use, using react-native-paper which is not installed
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, StyleSheet, RefreshControl } from 'react-native';
+import { ScrollView, View, StyleSheet, RefreshControl, Alert } from 'react-native';
 // These imports are commented out as react-native-paper is not installed
 // The screen is not currently used in navigation
 /*
@@ -65,6 +65,39 @@ export const HomeScreenV2 = ({ navigation }: any) => {
     loadData();
   }, []);
 
+  const openKycRequiredPrompt = (action: 'card' | 'topup') => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    const actionLabel = action === 'card' ? 'Card creation' : 'Top-up';
+    const message =
+      kycStatus === 'SUBMITTED'
+        ? `Your KYC is under review. ${actionLabel} will unlock after approval.`
+        : kycStatus === 'REJECTED'
+          ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+          : `Please complete KYC to use ${action === 'card' ? 'card creation' : 'top-up'}.`;
+    Alert.alert('KYC required', message, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+    ]);
+  };
+
+  const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      openKycRequiredPrompt('card');
+      return;
+    }
+    navigation.navigate('CreateCard');
+  };
+
+  const handleTopUp = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      openKycRequiredPrompt('topup');
+      return;
+    }
+    navigation.navigate('TopUp');
+  };
+
   const spendPercentage = (stats.monthlySpend / stats.monthlyLimit) * 100;
 
   return (
@@ -102,7 +135,7 @@ export const HomeScreenV2 = ({ navigation }: any) => {
         ) : (
           <Card
             style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}
-            onPress={() => navigation.navigate('CreateCard')}
+            onPress={handleCreateCard}
           >
             <Card.Content style={styles.emptyCardContent}>
               <Text variant="displaySmall" style={{ marginBottom: 8 }}>💳</Text>
@@ -177,7 +210,7 @@ export const HomeScreenV2 = ({ navigation }: any) => {
               <Button
                 mode="contained-tonal"
                 icon="credit-card-plus"
-                onPress={() => navigation.navigate('CreateCard')}
+                onPress={handleCreateCard}
                 style={styles.actionButton}
                 contentStyle={styles.actionButtonContent}
               >
@@ -198,7 +231,7 @@ export const HomeScreenV2 = ({ navigation }: any) => {
               <Button
                 mode="outlined"
                 icon="wallet"
-                onPress={() => navigation.navigate('TopUp')}
+                onPress={handleTopUp}
                 style={styles.actionButton}
                 contentStyle={styles.actionButtonContent}
               >
@@ -222,7 +255,7 @@ export const HomeScreenV2 = ({ navigation }: any) => {
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateCard')}
+        onPress={handleCreateCard}
         label="New Card"
       />
     </View>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View,
+  Alert,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -12,26 +13,95 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
+import { AuthAPI } from '../api/client';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { StewieCard } from '../components/stewiepay/StewieCard';
 import { StewieText } from '../components/stewiepay/StewieText';
 import { StewieButton } from '../components/stewiepay/StewieButton';
 import { Ionicons } from '@expo/vector-icons';
+import { authenticateWithBiometrics, getBiometricType, isBiometricAvailable } from '../utils/biometric';
 
 export const LoginScreenStewie = ({ navigation }: any) => {
   const { login, loading, error } = useAuth();
   const [email, setEmail] = useState('admin@stewiepay.local');
   const [password, setPassword] = useState('AdminPass123!');
   const [showPassword, setShowPassword] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
+
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+  // Check biometric availability on mount
+  React.useEffect(() => {
+    const checkBiometric = async () => {
+      const available = await isBiometricAvailable();
+      setBiometricAvailable(available);
+      if (available) {
+        const type = await getBiometricType();
+        setBiometricType(type);
+      }
+    };
+    checkBiometric();
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    const result = await authenticateWithBiometrics();
+    if (!result.success) {
+      // User cancelled or authentication failed - silently return
+      return;
+    }
+
+    // Get saved credentials
+    try {
+      const savedEmail = await AsyncStorage.getItem('biometric_email');
+      const savedPassword = await AsyncStorage.getItem('biometric_password');
+      
+      if (savedEmail && savedPassword) {
+        const success = await login(savedEmail, savedPassword);
+        if (success) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Error', 'Biometric login failed. Please use email and password.');
+        }
+      } else {
+        Alert.alert('No Saved Credentials', 'Please login with email and password first to enable biometric login.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to retrieve saved credentials.');
+    }
+  };
 
   const onSubmit = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await login(email, password);
     if (success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Save credentials for biometric login (optional - user can choose)
+      try {
+        await AsyncStorage.setItem('biometric_email', email);
+        await AsyncStorage.setItem('biometric_password', password);
+      } catch (error) {
+        // Silent fail - not critical
+      }
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const resendVerification = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await AuthAPI.resendVerification(email.trim());
+      Alert.alert('Verification Email Sent', 'Check your inbox and verify your email before signing in.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Could not resend verification email.';
+      Alert.alert('Failed', String(msg));
     }
   };
 
@@ -55,10 +125,10 @@ export const LoginScreenStewie = ({ navigation }: any) => {
             <View style={styles.headerIconContainer}>
               <Ionicons name="card-outline" size={64} color="#FFFFFF" />
             </View>
-            <StewieText variant="headlineLarge" color="primary" weight="black" style={styles.headerTitle}>
+            <StewieText variant="headlineLarge" color="primary" weight="black" style={[styles.headerTitle, { color: '#FFFFFF' }]}>
               StewiePay
             </StewieText>
-            <StewieText variant="bodyLarge" color="primary" style={styles.headerSubtitle}>
+            <StewieText variant="bodyLarge" color="primary" style={[styles.headerSubtitle, { color: '#FFFFFF' }]}>
               Sign in to your account
             </StewieText>
           </Animatable.View>
@@ -80,7 +150,7 @@ export const LoginScreenStewie = ({ navigation }: any) => {
                 <StewieText variant="labelMedium" color="muted" style={styles.inputLabel}>
                   Email
                 </StewieText>
-                <View style={styles.inputBox}>
+                <View style={[styles.inputBox, email && !isValidEmail(email) && { borderColor: StewiePayBrand.colors.error }]}>
                   <Ionicons name="mail-outline" size={20} color={StewiePayBrand.colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Enter your email"
@@ -93,6 +163,11 @@ export const LoginScreenStewie = ({ navigation }: any) => {
                     style={styles.input}
                   />
                 </View>
+                {email && !isValidEmail(email) && (
+                  <StewieText variant="labelSmall" style={{ color: StewiePayBrand.colors.error, marginTop: 6 }}>
+                    Enter a valid email (example: name@gmail.com).
+                  </StewieText>
+                )}
               </View>
 
               {/* Password Input */}
@@ -138,6 +213,13 @@ export const LoginScreenStewie = ({ navigation }: any) => {
                   </View>
                 </Animatable.View>
               )}
+              {!!error && error.toLowerCase().includes('verify your email') && (
+                <TouchableOpacity onPress={resendVerification} style={styles.forgotPasswordButton}>
+                  <StewieText variant="bodyMedium" color="brand" weight="semibold">
+                    Resend verification email
+                  </StewieText>
+                </TouchableOpacity>
+              )}
 
               {/* Login Button */}
               <StewieButton
@@ -150,6 +232,19 @@ export const LoginScreenStewie = ({ navigation }: any) => {
                 fullWidth
                 style={styles.loginButton}
               />
+
+              {/* Forgot Password Link */}
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate('ForgotPassword');
+                }}
+                style={styles.forgotPasswordButton}
+              >
+                <StewieText variant="bodyMedium" color="brand" weight="semibold">
+                  Forgot Password?
+                </StewieText>
+              </TouchableOpacity>
 
               {/* Sign Up Link */}
               <View style={styles.signupContainer}>
@@ -265,8 +360,42 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
   },
+  biometricButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: StewiePayBrand.spacing.md,
+    paddingHorizontal: StewiePayBrand.spacing.lg,
+    borderRadius: StewiePayBrand.radius.lg,
+    borderWidth: 2,
+    borderColor: StewiePayBrand.colors.primary,
+    backgroundColor: 'transparent',
+    marginBottom: StewiePayBrand.spacing.md,
+    gap: StewiePayBrand.spacing.sm,
+  },
+  biometricText: {
+    marginLeft: StewiePayBrand.spacing.xs,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: StewiePayBrand.spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: StewiePayBrand.colors.surfaceVariant,
+  },
+  dividerText: {
+    marginHorizontal: StewiePayBrand.spacing.md,
+  },
   loginButton: {
     marginTop: StewiePayBrand.spacing.md,
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    marginTop: StewiePayBrand.spacing.md,
+    paddingVertical: StewiePayBrand.spacing.xs,
   },
   signupContainer: {
     flexDirection: 'row',

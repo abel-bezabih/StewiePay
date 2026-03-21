@@ -18,6 +18,7 @@ const jwt_guard_1 = require("../auth/jwt.guard");
 const card_service_1 = require("./card.service");
 const merchant_lock_service_1 = require("./merchant-lock.service");
 const create_card_dto_1 = require("./dto/create-card.dto");
+const update_card_limits_dto_1 = require("./dto/update-card-limits.dto");
 const update_merchant_locks_dto_1 = require("./dto/update-merchant-locks.dto");
 const update_time_window_dto_1 = require("./dto/update-time-window.dto");
 const card_creation_rate_limit_guard_1 = require("./card-creation-rate-limit.guard");
@@ -42,6 +43,9 @@ let CardsController = class CardsController {
         // Verify user has access to the card
         await this.cardsService.getAccessibleCard(id, req.user.userId);
         return this.merchantLockService.updateMerchantLocks(id, dto);
+    }
+    updateLimits(req, id, dto) {
+        return this.cardsService.updateLimits(id, req.user.userId, dto);
     }
     getMccCategories() {
         return this.merchantLockService.getCommonMccCategories();
@@ -92,6 +96,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, update_merchant_locks_dto_1.UpdateMerchantLocksDto]),
     __metadata("design:returntype", Promise)
 ], CardsController.prototype, "updateMerchantLocks", null);
+__decorate([
+    (0, common_1.Patch)(':id/limits'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_card_limits_dto_1.UpdateCardLimitsDto]),
+    __metadata("design:returntype", void 0)
+], CardsController.prototype, "updateLimits", null);
 __decorate([
     (0, common_1.Get)('mcc-categories'),
     __metadata("design:type", Function),

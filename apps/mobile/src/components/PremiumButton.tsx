@@ -89,18 +89,18 @@ export const PremiumButton: React.FC<PremiumButtonProps> = ({
     };
   });
 
-  const getGradient = () => {
+  const getGradient = (): [string, string, ...string[]] => {
     switch (variant) {
       case 'primary':
-        return StewiePayBrand.colors.gradients.primary;
+        return StewiePayBrand.colors.gradients.primary as [string, string, ...string[]];
       case 'secondary':
-        return StewiePayBrand.colors.gradients.secondary;
+        return StewiePayBrand.colors.gradients.secondary as [string, string, ...string[]];
       case 'accent':
-        return StewiePayBrand.colors.gradients.accent;
+        return StewiePayBrand.colors.gradients.accent as [string, string, ...string[]];
       case 'success':
-        return StewiePayBrand.colors.gradients.success;
+        return StewiePayBrand.colors.gradients.success as [string, string, ...string[]];
       default:
-        return StewiePayBrand.colors.gradients.primary;
+        return StewiePayBrand.colors.gradients.primary as [string, string, ...string[]];
     }
   };
 
