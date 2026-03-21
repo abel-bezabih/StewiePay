@@ -25,7 +25,7 @@ interface InteractiveCardProps {
   status?: string;
   balance?: number;
   currency?: string;
-  gradient?: string[];
+  gradient?: [string, string];
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   onPress?: () => void;
@@ -128,7 +128,7 @@ export const InteractiveCard: React.FC<InteractiveCardProps> = ({
     <Animated.View style={[styles.cardContainer, animatedStyle]}>
       <Animated.View style={[styles.card, cardStyle]}>
         <LinearGradient
-          colors={status === 'FROZEN' ? ['#4B5563', '#6B7280'] : gradient}
+          colors={status === 'FROZEN' ? (['#4B5563', '#6B7280'] as [string, string]) : gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradient}

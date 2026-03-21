@@ -112,7 +112,7 @@ export const TransactionsScreenClean = ({ navigation, route }: any) => {
       {/* Transactions List */}
       {loading && txns.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <ActivityIndicator size={32} color={colors.brand.primary} />
           <Text style={styles.loadingText}>Loading transactions...</Text>
         </View>
       ) : (
@@ -260,6 +260,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
+
+
+
+
+
 
 
 

@@ -5,7 +5,10 @@ export declare enum IssuerWebhookEventType {
     CARD_FROZEN = "card.frozen",
     CARD_UNFROZEN = "card.unfrozen",
     CARD_CLOSED = "card.closed",
-    CARD_LIMIT_UPDATED = "card.limit_updated"
+    CARD_LIMIT_UPDATED = "card.limit_updated",
+    FUNDING_LOADED = "funding.loaded",
+    FUNDING_FAILED = "funding.failed",
+    FUNDING_PENDING = "funding.pending"
 }
 export declare class TransactionWebhookData {
     transactionId: string;
@@ -23,11 +26,19 @@ export declare class CardWebhookData {
     limitMonthly?: number;
     limitPerTxn?: number;
 }
+export declare class FundingWebhookData {
+    topUpReference: string;
+    providerReference?: string;
+    issuerReference?: string;
+    reason?: string;
+    timestamp?: string;
+}
 export declare class IssuerWebhookDto {
     eventType: IssuerWebhookEventType;
     webhookId: string;
     timestamp: string;
     transaction?: TransactionWebhookData;
     card?: CardWebhookData;
+    funding?: FundingWebhookData;
     signature?: string;
 }

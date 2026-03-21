@@ -31,7 +31,13 @@ export const SignupScreenPremium = ({ navigation }: any) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   const onSubmit = async () => {
+    if (!isValidEmail(email)) {
+      return;
+    }
     if (password !== confirmPassword) {
       return;
     }
@@ -45,7 +51,8 @@ export const SignupScreenPremium = ({ navigation }: any) => {
   };
 
   const passwordsMatch = password && confirmPassword && password === confirmPassword;
-  const canSubmit = name && email && password && passwordsMatch && agreeToTerms;
+  const emailValid = email ? isValidEmail(email) : false;
+  const canSubmit = name && emailValid && password && passwordsMatch && agreeToTerms;
 
   return (
     <KeyboardAvoidingView
@@ -110,10 +117,15 @@ export const SignupScreenPremium = ({ navigation }: any) => {
                   autoComplete="email"
                   left={<TextInput.Icon icon="email" />}
                   style={styles.input}
-                  error={!!error}
+                  error={!!error || (email && !emailValid)}
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />
+                {email && !emailValid && (
+                  <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+                    Enter a valid email (example: name@gmail.com).
+                  </Text>
+                )}
 
                 <TextInput
                   label="Password"

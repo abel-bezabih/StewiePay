@@ -45,13 +45,31 @@ enum TopUpStatus {
   FAILED
 }
 
+enum TopUpFundingState {
+  PSP_PENDING
+  PSP_CONFIRMED
+  ISSUER_PENDING
+  CARD_LOADED
+  FAILED
+}
+
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
   phone     String?
+  avatarUrl String?  // Profile photo URL
   role      UserRole @default(INDIVIDUAL)
   passwordHash String
+  emailVerified Boolean @default(false)
+  emailVerifiedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -60,10 +78,21 @@ model User {
   cards              Card[]           @relation("UserCards")
   topUps             TopUp[]
   refreshTokens      RefreshToken[]
+  sentOrganizationInvites     OrganizationInvite[] @relation("OrgInviteInvitedBy")
+  acceptedOrganizationInvites OrganizationInvite[] @relation("OrgInviteAcceptedBy")
 
   // Push notifications
   pushToken          String?
   notificationPreferences Json? // { transactions: true, limits: true, subscriptions: true, cardStatus: true }
+
+  // KYC
+  kycStatus          KycStatus @default(PENDING)
+  kycSubmittedAt     DateTime?
+  kycVerifiedAt      DateTime?
+  kycRejectionReason String?
+  kycDocuments       Json?
+  kycReviews         KycReviewEvent[] @relation("KycSubject")
+  kycReviewsDone     KycReviewEvent[] @relation("KycReviewer")
 
   // Budgets
   budgets            Budget[]
@@ -81,6 +110,7 @@ model Organization {
   members OrganizationMember[]
   cards   Card[] @relation("OrgCards")
   topUps  TopUp[]
+  invites OrganizationInvite[]
 }
 
 model OrganizationMember {
@@ -95,6 +125,27 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
+}
+
+model OrganizationInvite {
+  id             String   @id @default(uuid())
+  email          String
+  role           OrgRole  @default(MEMBER)
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  acceptedAt     DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  invitedById    String
+  invitedBy      User @relation("OrgInviteInvitedBy", fields: [invitedById], references: [id])
+
+  acceptedById   String?
+  acceptedBy     User? @relation("OrgInviteAcceptedBy", fields: [acceptedById], references: [id])
+
+  @@unique([organizationId, email])
 }
 
 model Card {
@@ -142,21 +193,52 @@ model Transaction {
 
   cardId String
   card   Card @relation(fields: [cardId], references: [id])
+
+  @@index([cardId, timestamp])
+  @@index([cardId, status, timestamp])
 }
 
 model TopUp {
-  id         String      @id @default(uuid())
-  provider   String
-  reference  String
-  amount     Int
-  currency   String
-  status     TopUpStatus @default(PENDING)
-  createdAt  DateTime    @default(now())
-  userId     String?
-  orgId      String?
+  id                    String            @id @default(uuid())
+  provider              String
+  reference             String
+  amount                Int
+  currency              String
+  status                TopUpStatus       @default(PENDING)
+  fundingState          TopUpFundingState @default(PSP_PENDING)
+  pspCompletedAt        DateTime?
+  issuerLoadedAt        DateTime?
+  settlementFailureReason String?
+  createdAt             DateTime          @default(now())
+  userId                String?
+  orgId                 String?
 
   user User?         @relation(fields: [userId], references: [id])
   org  Organization? @relation(fields: [orgId], references: [id])
+  settlementEvents FundingSettlementEvent[]
+
+  @@unique([reference])
+  @@index([userId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([status, createdAt])
+  @@index([fundingState, createdAt])
+}
+
+model FundingSettlementEvent {
+  id          String   @id @default(uuid())
+  topUpId     String
+  source      String
+  eventType   String
+  fromState   TopUpFundingState?
+  toState     TopUpFundingState
+  message     String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  topUp TopUp @relation(fields: [topUpId], references: [id], onDelete: Cascade)
+
+  @@index([topUpId, createdAt])
+  @@index([source, createdAt])
 }
 
 model Subscription {
@@ -196,5 +278,55 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model WebhookLog {
+  id        String   @id @default(uuid())
+  webhookId String
+  source    String
+  eventType String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@unique([webhookId, source])
+  @@index([webhookId, source])
+}
+
+model WebhookJob {
+  id           String   @id @default(uuid())
+  source       String
+  webhookId    String
+  payload      Json
+  signature    String?
+  status       String   @default("PENDING")
+  attemptCount Int      @default(0)
+  lastError    String?
+  nextAttemptAt DateTime @default(now())
+  lockedAt     DateTime?
+  processedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([source, webhookId])
+  @@index([status, nextAttemptAt])
+}
+
+model KycReviewEvent {
+  id                String   @id @default(uuid())
+  userId            String
+  reviewerId        String
+  previousStatus    KycStatus
+  newStatus         KycStatus
+  rejectionReason   String?
+  reviewNote        String?
+  reviewerIp        String?
+  reviewerUserAgent String?
+  createdAt         DateTime @default(now())
+
+  user     User @relation("KycSubject", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User @relation("KycReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([reviewerId, createdAt])
 }
 

@@ -26,15 +26,6 @@ let AnalyticsController = class AnalyticsController {
     spendByCategory(req) {
         return this.analyticsService.spendByCategory(req.user.userId);
     }
-    categoryTrends(req, months) {
-        return this.analyticsService.categoryTrends(req.user.userId, months ? parseInt(months, 10) : 6);
-    }
-    topCategories(req, limit) {
-        return this.analyticsService.topCategories(req.user.userId, limit ? parseInt(limit, 10) : 5);
-    }
-    insights(req) {
-        return this.analyticsService.spendingInsights(req.user.userId);
-    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
@@ -51,29 +42,6 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AnalyticsController.prototype, "spendByCategory", null);
-__decorate([
-    (0, common_1.Get)('category-trends'),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Query)('months')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", void 0)
-], AnalyticsController.prototype, "categoryTrends", null);
-__decorate([
-    (0, common_1.Get)('top-categories'),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Query)('limit')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", void 0)
-], AnalyticsController.prototype, "topCategories", null);
-__decorate([
-    (0, common_1.Get)('insights'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], AnalyticsController.prototype, "insights", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('analytics'),

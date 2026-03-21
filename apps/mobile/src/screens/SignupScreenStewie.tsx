@@ -28,7 +28,13 @@ export const SignupScreenStewie = ({ navigation }: any) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   const onSubmit = async () => {
+    if (!isValidEmail(email)) {
+      return;
+    }
     if (password !== confirmPassword) {
       return;
     }
@@ -36,13 +42,15 @@ export const SignupScreenStewie = ({ navigation }: any) => {
     const success = await signup(name, email, password);
     if (success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate('VerifyEmailPending', { email: email.trim() });
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
   const passwordsMatch = password && confirmPassword && password === confirmPassword;
-  const canSubmit = name && email && password && passwordsMatch && agreeToTerms;
+  const emailValid = email ? isValidEmail(email) : false;
+  const canSubmit = name && emailValid && password && passwordsMatch && agreeToTerms;
 
   return (
     <KeyboardAvoidingView
@@ -64,10 +72,10 @@ export const SignupScreenStewie = ({ navigation }: any) => {
             <View style={styles.headerIconContainer}>
               <Ionicons name="checkmark-circle-outline" size={64} color="#FFFFFF" />
             </View>
-            <StewieText variant="headlineLarge" color="primary" weight="black" style={styles.headerTitle}>
+            <StewieText variant="headlineLarge" color="primary" weight="black" style={[styles.headerTitle, { color: '#FFFFFF' }]}>
               StewiePay
             </StewieText>
-            <StewieText variant="bodyLarge" color="primary" style={styles.headerSubtitle}>
+            <StewieText variant="bodyLarge" color="primary" style={[styles.headerSubtitle, { color: '#FFFFFF' }]}>
               Create your account
             </StewieText>
           </Animatable.View>
@@ -104,7 +112,7 @@ export const SignupScreenStewie = ({ navigation }: any) => {
                 <StewieText variant="labelMedium" color="muted" style={styles.inputLabel}>
                   Email
                 </StewieText>
-                <View style={styles.inputBox}>
+                <View style={[styles.inputBox, email && !emailValid && styles.inputBoxError]}>
                   <Ionicons name="mail-outline" size={20} color={StewiePayBrand.colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Enter your email"
@@ -117,6 +125,11 @@ export const SignupScreenStewie = ({ navigation }: any) => {
                     style={styles.input}
                   />
                 </View>
+                {email && !emailValid && (
+                  <StewieText variant="labelSmall" style={{ color: StewiePayBrand.colors.error, marginTop: 6 }}>
+                    Enter a valid email (example: name@gmail.com).
+                  </StewieText>
+                )}
               </View>
 
               {/* Password Input */}

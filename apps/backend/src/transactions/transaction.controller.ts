@@ -28,7 +28,8 @@ export class TransactionsController {
       endDate: query.endDate,
       minAmount: query.minAmount,
       maxAmount: query.maxAmount,
-      search: query.search
+      search: query.search,
+      status: query.status
     });
   }
 

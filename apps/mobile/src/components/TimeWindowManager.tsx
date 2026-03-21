@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, ActivityIndicator, TextStyle } from 'react-native';
 import { CardsAPI } from '../api/client';
 import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
@@ -335,7 +335,10 @@ const styles = StyleSheet.create({
   },
   timeInput: {
     flex: 1,
-    ...StewiePayBrand.typography.styles.bodyMedium,
+    fontSize: StewiePayBrand.typography.styles.bodyMedium.fontSize,
+    fontWeight: StewiePayBrand.typography.styles.bodyMedium.fontWeight as TextStyle['fontWeight'],
+    lineHeight: StewiePayBrand.typography.styles.bodyMedium.lineHeight,
+    letterSpacing: StewiePayBrand.typography.styles.bodyMedium.letterSpacing,
     color: StewiePayBrand.colors.textPrimary,
   },
   errorText: {

@@ -1,37 +1,41 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../styles/design-system';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
 import { LoginScreenStewie } from '../screens/LoginScreenStewie';
 import { SignupScreenStewie } from '../screens/SignupScreenStewie';
+import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
+import { VerifyEmailPendingScreen } from '../screens/VerifyEmailPendingScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { HomeScreenStewie } from '../screens/HomeScreenStewie';
 import { CardsScreenStewie } from '../screens/CardsScreenStewie';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
 import { CreateCardScreenStewie } from '../screens/CreateCardScreenStewie';
+import { EditCardLimitsScreen } from '../screens/EditCardLimitsScreen';
+import { KycVerificationScreen } from '../screens/KycVerificationScreen';
 import { TransactionsScreenStewie } from '../screens/TransactionsScreenStewie';
-import { AnalyticsScreenStewie } from '../screens/AnalyticsScreenStewie';
-import { SubscriptionsScreenStewie } from '../screens/SubscriptionsScreenStewie';
-import { BudgetsScreenStewie } from '../screens/BudgetsScreenStewie';
+import { TransactionDetailScreen } from '../screens/TransactionDetailScreen';
+import { ActivitiesScreenStewie } from '../screens/ActivitiesScreenStewie';
 import { TopUpScreenStewie } from '../screens/TopUpScreenStewie';
 import { MoreScreen } from '../screens/MoreScreen';
 import { AccountScreen } from '../screens/AccountScreen';
+import { CustomTabBar } from '../components/navigation/CustomTabBar';
 
 type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   CardDetail: { cardId: string };
+  EditCardLimits: { cardId: string; limits: { limitDaily?: number; limitMonthly?: number; limitPerTxn?: number } };
   CreateCard: { orgId?: string };
-  Analytics: undefined;
-  Budgets: undefined;
-  Subscriptions: undefined;
+  TransactionDetail: { transaction: any };
+  KycVerification: undefined;
+  Activities: undefined;
   TopUp: undefined;
   Account: undefined;
 };
@@ -41,38 +45,25 @@ const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const hasAutoPromptedKyc = useRef(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const status = (user as any)?.kycStatus || 'PENDING';
+    if (status === 'PENDING' && !hasAutoPromptedKyc.current) {
+      hasAutoPromptedKyc.current = true;
+      navigation.navigate('KycVerification');
+    }
+  }, [navigation, user]);
   
   return (
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       <Tab.Navigator
+        tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          tabBarStyle: {
-            backgroundColor: StewiePayBrand.colors.background, // Gray background
-            borderTopWidth: 0,
-            height: Platform.OS === 'ios' ? 88 : 72,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-            paddingTop: 12,
-            paddingHorizontal: StewiePayBrand.spacing.md,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            ...StewiePayBrand.shadows.lg,
-            elevation: 8,
-            marginHorizontal: StewiePayBrand.spacing.sm,
-            marginBottom: Platform.OS === 'ios' ? 8 : 4,
-            position: 'absolute',
-          },
-          tabBarActiveTintColor: StewiePayBrand.colors.primary,
-          tabBarInactiveTintColor: '#999999', // Light gray for inactive tabs
-          tabBarIconStyle: { marginTop: 4 },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: '600',
-            marginTop: 2,
-          },
-          tabBarItemStyle: {
-            paddingVertical: 4,
-          },
+          tabBarStyle: { display: 'none' }, // Hide default tab bar, using custom one
         }}
       >
         <Tab.Screen
@@ -86,17 +77,23 @@ const TabNavigator = () => {
                 color={color} 
               />
             ),
-            tabBarLabel: 'Home'
+            tabBarLabel: 'Home',
+            tabBarItemStyle: {
+              paddingHorizontal: 4, // Minimal spacing for left group
+            },
           }}
         />
         <Tab.Screen
-          name="Analytics"
-          component={AnalyticsScreenStewie}
+          name="Cards"
+          component={CardsScreenStewie}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="stats-chart-outline" size={size} color={color} />
+              <Ionicons name="wallet-outline" size={size} color={color} />
             ),
-            tabBarLabel: 'Analytics',
+            tabBarLabel: 'Cards',
+            tabBarItemStyle: {
+              paddingHorizontal: 4, // Minimal spacing for left group
+            },
           }}
         />
         <Tab.Screen
@@ -109,13 +106,16 @@ const TabNavigator = () => {
           }}
         />
         <Tab.Screen
-          name="Cards"
-          component={CardsScreenStewie}
+          name="Activities"
+          component={ActivitiesScreenStewie}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="wallet-outline" size={size} color={color} />
+              <Ionicons name="receipt-outline" size={size} color={color} />
             ),
-            tabBarLabel: 'Cards'
+            tabBarLabel: 'Activities',
+            tabBarItemStyle: {
+              paddingHorizontal: 8, // Right group spacing
+            },
           }}
         />
         <Tab.Screen
@@ -123,50 +123,21 @@ const TabNavigator = () => {
           component={MoreScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
+              <Ionicons name="grid-outline" size={size} color={color} />
             ),
-            tabBarLabel: 'More'
+            tabBarLabel: 'More',
+            tabBarItemStyle: {
+              paddingHorizontal: 8, // Right group spacing
+            },
           }}
         />
-      </Tab.Navigator>
-      
-      {/* Floating Action Button (FAB) */}
-      <View style={{
-        position: 'absolute',
-        bottom: Platform.OS === 'ios' ? 50 : 42,
-        alignSelf: 'center',
-        zIndex: 1000,
-      }}>
-        <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('TopUp');
-          }}
-          activeOpacity={0.8}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: StewiePayBrand.colors.primary,
-            justifyContent: 'center',
-            alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 12,
-          }}
-        >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+        </Tab.Navigator>
     </View>
   );
 };
 
 const AuthStack = createNativeStackNavigator();
 const AuthNavigator = () => {
-  const { colors } = useTheme();
-  
   return (
     <AuthStack.Navigator
       screenOptions={{
@@ -176,6 +147,8 @@ const AuthNavigator = () => {
     >
       <AuthStack.Screen name="Login" component={LoginScreenStewie} />
       <AuthStack.Screen name="Signup" component={SignupScreenStewie} />
+      <AuthStack.Screen name="VerifyEmailPending" component={VerifyEmailPendingScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 };
@@ -194,7 +167,6 @@ const MainScreen = () => {
 };
 
 export const RootNavigator = () => {
-  const { colors } = useTheme();
   return (
     <Stack.Navigator
       screenOptions={{
@@ -204,10 +176,11 @@ export const RootNavigator = () => {
     >
       <Stack.Screen name="Main" component={MainScreen} />
       <Stack.Screen name="CardDetail" component={CardDetailScreen} />
+      <Stack.Screen name="EditCardLimits" component={EditCardLimitsScreen} />
       <Stack.Screen name="CreateCard" component={CreateCardScreenStewie} />
-      <Stack.Screen name="Analytics" component={AnalyticsScreenStewie} />
-      <Stack.Screen name="Budgets" component={BudgetsScreenStewie} />
-      <Stack.Screen name="Subscriptions" component={SubscriptionsScreenStewie} />
+      <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      <Stack.Screen name="KycVerification" component={KycVerificationScreen} />
+      <Stack.Screen name="Activities" component={ActivitiesScreenStewie} />
       <Stack.Screen 
         name="TopUp" 
         component={TopUpScreenStewie}

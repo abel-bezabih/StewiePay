@@ -1,27 +1,34 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { TransactionStatus } from '@prisma/client';
+import { CardStatus, CardType, TransactionStatus } from '@prisma/client';
 import { CardsService } from '../cards/card.service';
 import { MerchantLockService } from '../cards/merchant-lock.service';
 import { TransactionCategoryService } from './transaction-category.service';
 import { TimeWindowService } from '../cards/time-window.service';
-import { SubscriptionDetectionService } from '../subscriptions/subscription-detection.service';
 import { NotificationService } from '../notifications/notification.service';
+import { PaymentAccessTier, UsersService } from '../users/user.service';
 
 @Injectable()
 export class TransactionsService {
+  private readonly LIMITED_SPEND_PER_TXN = Number(process.env.KYC_LIMITED_SPEND_PER_TXN ?? 3_000);
+  private readonly LIMITED_SPEND_DAILY = Number(process.env.KYC_LIMITED_SPEND_DAILY ?? 10_000);
+  private readonly LIMITED_SPEND_MONTHLY = Number(process.env.KYC_LIMITED_SPEND_MONTHLY ?? 50_000);
+
   constructor(
     private prisma: PrismaService,
     private cardsService: CardsService,
     private merchantLockService: MerchantLockService,
     private categoryService: TransactionCategoryService,
     private timeWindowService: TimeWindowService,
-    private subscriptionDetection: SubscriptionDetectionService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private usersService: UsersService
   ) {}
 
   async simulate(userId: string, dto: CreateTransactionDto) {
+    const paymentAccess = await this.usersService.assertPaymentKycEligible(userId, 'simulate a transaction', {
+      allowSubmittedWithLimits: true
+    });
     // Ensure user can access the card
     const card = await this.cardsService.getAccessibleCard(dto.cardId, userId);
 
@@ -37,8 +44,11 @@ export class TransactionsService {
     this.timeWindowService.assertTransactionAllowed(card);
 
     // Check spending limits
-    this.assertPerTxnLimit(card.limitPerTxn, dto.amount);
-    await this.assertRollingLimits(card.id, card.limitDaily, card.limitMonthly, dto.amount);
+    const effectivePerTxnLimit = this.getEffectiveLimit(card.limitPerTxn, this.LIMITED_SPEND_PER_TXN, paymentAccess.tier);
+    const effectiveDailyLimit = this.getEffectiveLimit(card.limitDaily, this.LIMITED_SPEND_DAILY, paymentAccess.tier);
+    const effectiveMonthlyLimit = this.getEffectiveLimit(card.limitMonthly, this.LIMITED_SPEND_MONTHLY, paymentAccess.tier);
+    this.assertPerTxnLimit(effectivePerTxnLimit, dto.amount);
+    await this.assertRollingLimits(card.id, effectiveDailyLimit, effectiveMonthlyLimit, dto.amount);
 
     // Auto-categorize transaction if category not provided
     const category = dto.category || this.categoryService.categorize(dto.merchantName, dto.mcc);
@@ -57,18 +67,15 @@ export class TransactionsService {
       }
     });
 
-    // Auto-detect subscriptions (async, don't block transaction)
     if (status === TransactionStatus.SETTLED) {
-      this.subscriptionDetection
-        .detectAndUpdateSubscriptions(dto.cardId, transaction.id)
-        .catch((err) => {
-          console.error('Subscription detection failed:', err);
-          // Don't throw - subscription detection is non-critical
-        });
-
       // Send transaction notification (async, don't block)
       this.sendTransactionNotification(card, transaction).catch((err) => {
         console.error('Notification failed:', err);
+      });
+
+      // Auto-close burner cards after first settled transaction
+      this.closeBurnerCardIfNeeded(card).catch((err) => {
+        console.error('Failed to auto-close burner card:', err);
       });
     }
 
@@ -79,6 +86,20 @@ export class TransactionsService {
     if (limit && amount > limit) {
       throw new BadRequestException('Per-transaction limit exceeded');
     }
+  }
+
+  private getEffectiveLimit(
+    cardLimit: number | null | undefined,
+    limitedTierCap: number,
+    tier: PaymentAccessTier
+  ): number | undefined {
+    if (tier !== 'LIMITED') {
+      return cardLimit ?? undefined;
+    }
+    if (cardLimit === null || cardLimit === undefined) {
+      return limitedTierCap;
+    }
+    return Math.min(cardLimit, limitedTierCap);
   }
 
   private async assertRollingLimits(
@@ -104,14 +125,7 @@ export class TransactionsService {
       if (percentage >= 80 && percentage < 100) {
         const card = await this.prisma.card.findUnique({ where: { id: cardId } });
         if (card) {
-          let ownerUserId = card.ownerUserId;
-          if (!ownerUserId && card.ownerOrgId) {
-            const org = await this.prisma.organization.findUnique({
-              where: { id: card.ownerOrgId },
-              select: { ownerId: true }
-            });
-            ownerUserId = org?.ownerId ?? null;
-          }
+          const ownerUserId = card.ownerUserId;
           if (ownerUserId) {
             this.notificationService
               .notifyLimitWarning(ownerUserId, cardId, 'daily', newTotal, daily, percentage)
@@ -141,14 +155,7 @@ export class TransactionsService {
       if (percentage >= 80 && percentage < 100) {
         const card = await this.prisma.card.findUnique({ where: { id: cardId } });
         if (card) {
-          let ownerUserId = card.ownerUserId;
-          if (!ownerUserId && card.ownerOrgId) {
-            const org = await this.prisma.organization.findUnique({
-              where: { id: card.ownerOrgId },
-              select: { ownerId: true }
-            });
-            ownerUserId = org?.ownerId ?? null;
-          }
+          const ownerUserId = card.ownerUserId;
           if (ownerUserId) {
             this.notificationService
               .notifyLimitWarning(ownerUserId, cardId, 'monthly', newTotal, monthly, percentage)
@@ -165,15 +172,7 @@ export class TransactionsService {
 
   private async sendTransactionNotification(card: any, transaction: any) {
     // Get card owner (user or org owner)
-    let ownerUserId = card.ownerUserId;
-    if (!ownerUserId && card.ownerOrgId) {
-      const org = await this.prisma.organization.findUnique({
-        where: { id: card.ownerOrgId },
-        select: { ownerId: true }
-      });
-      ownerUserId = org?.ownerId ?? null;
-    }
-
+    const ownerUserId = card.ownerUserId;
     if (ownerUserId) {
       await this.notificationService.notifyTransaction(ownerUserId, {
         amount: transaction.amount,
@@ -181,6 +180,22 @@ export class TransactionsService {
         merchantName: transaction.merchantName,
         cardId: transaction.cardId
       });
+    }
+  }
+
+  private async closeBurnerCardIfNeeded(card: { id: string; type: CardType; status: CardStatus; ownerUserId?: string | null }) {
+    if (card.type !== CardType.BURNER || card.status !== CardStatus.ACTIVE) {
+      return;
+    }
+
+    await this.prisma.card.update({
+      where: { id: card.id },
+      data: { status: CardStatus.CLOSED }
+    });
+
+    const ownerUserId = card.ownerUserId;
+    if (ownerUserId) {
+      await this.notificationService.notifyCardStatusChange(ownerUserId, card.id, 'CLOSED');
     }
   }
 
@@ -195,6 +210,7 @@ export class TransactionsService {
       minAmount?: number;
       maxAmount?: number;
       search?: string;
+      status?: TransactionStatus;
     }
   ) {
     const accessibleIds = await this.cardsService.getAccessibleCardIds(userId);
@@ -222,6 +238,10 @@ export class TransactionsService {
 
     if (filters?.category) {
       where.category = filters.category;
+    }
+
+    if (filters?.status) {
+      where.status = filters.status;
     }
 
     if (filters?.startDate || filters?.endDate) {

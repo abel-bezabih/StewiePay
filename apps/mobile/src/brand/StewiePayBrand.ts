@@ -18,9 +18,9 @@ export const StewiePayBrand = {
   // ============================================
   colors: {
     // Primary Brand Color - Deep Purple (Trust, Premium, Calm)
-    primary: '#5B21B6', // Deep purple
-    primaryDark: '#4C1D95', // Darker deep purple
-    primaryLight: '#7C3AED', // Lighter deep purple
+    primary: '#7C3AED', // Lighter purple
+    primaryDark: '#6D28D9', // Darker purple
+    primaryLight: '#8B5CF6', // Light purple
     
     // Secondary - Muted Cyan (Clarity, Technology)
     secondary: '#00A8CC',
@@ -28,9 +28,9 @@ export const StewiePayBrand = {
     secondaryLight: '#00C8EE',
     
     // Accent - Reserved (Used sparingly for focus)
-    accent: '#5B21B6', // Deep purple
-    accentDark: '#4C1D95', // Darker deep purple
-    accentLight: '#7C3AED', // Lighter deep purple
+    accent: '#7C3AED', // Lighter purple
+    accentDark: '#6D28D9', // Darker purple
+    accentLight: '#8B5CF6', // Light purple
     
     // Success - Emerald Green (Growth, Positive, Trust)
     success: '#10B981',
@@ -55,10 +55,11 @@ export const StewiePayBrand = {
     surfaceVariant: '#E5E5E5',   // Even lighter - borders, dividers
     
     // Text Colors - Light (High Contrast on Dark Background)
-    textPrimary: '#FFFFFF',      // Pure white - primary text
-    textSecondary: '#E5E7EB',    // Light gray - secondary text
-    textMuted: '#9CA3AF',         // Medium gray - tertiary text
+    textPrimary: '#111827',       // Dark gray/black - primary text (changed from white for light theme)
+    textSecondary: '#374151',     // Medium gray - secondary text
+    textMuted: '#111827',         // Black - for small descriptions and secondary text
     textDisabled: '#6B7280',      // Darker gray - disabled text
+    textOnPrimary: '#FFFFFF',     // White text for primary/gradient surfaces
     
     // Overlays
     overlay: 'rgba(0, 0, 0, 0.7)', // Dark overlay for modals
@@ -66,9 +67,9 @@ export const StewiePayBrand = {
     
     // Gradients - Subtle, Purposeful
     gradients: {
-      primary: ['#5B21B6', '#4C1D95'], // Deep purple gradient
+      primary: ['#8B5CF6', '#6D28D9'], // Lighter purple gradient
       secondary: ['#00A8CC', '#0088AA'],
-      accent: ['#5B21B6', '#4C1D95'], // Deep purple gradient
+      accent: ['#8B5CF6', '#6D28D9'], // Lighter purple gradient
       success: ['#10B981', '#059669'],
       dark: ['#0A0A0A', '#1A1A1A'],
     },

@@ -13,14 +13,16 @@ let DummyPspAdapter = class DummyPspAdapter {
         return {
             provider: 'dummy-psp',
             providerReference: `psp-${request.reference}`,
-            status: 'PENDING'
+            status: 'PENDING',
+            checkoutUrl: undefined
         };
     }
     async verifyTopUp(providerReference) {
         return {
             provider: 'dummy-psp',
             providerReference,
-            status: 'COMPLETED'
+            status: 'COMPLETED',
+            rawStatus: 'success'
         };
     }
 };

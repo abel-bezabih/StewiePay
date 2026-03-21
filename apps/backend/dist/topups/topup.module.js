@@ -12,12 +12,13 @@ const topup_service_1 = require("./topup.service");
 const topup_controller_1 = require("./topup.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const integrations_module_1 = require("../integrations/integrations.module");
+const user_module_1 = require("../users/user.module");
 let TopUpModule = class TopUpModule {
 };
 exports.TopUpModule = TopUpModule;
 exports.TopUpModule = TopUpModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, integrations_module_1.IntegrationsModule],
+        imports: [prisma_module_1.PrismaModule, integrations_module_1.IntegrationsModule, user_module_1.UsersModule],
         controllers: [topup_controller_1.TopUpController],
         providers: [topup_service_1.TopUpService]
     })

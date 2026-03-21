@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { TopUpService } from './topup.service';
 import { InitiateTopUpDto } from './dto/initiate-topup.dto';
@@ -23,7 +23,20 @@ export class TopUpController {
   list(@Req() req: any) {
     return this.topupService.list(req.user.userId);
   }
+
+  @Get(':id/reconciliation')
+  reconciliation(@Req() req: any, @Param('id') topUpId: string) {
+    return this.topupService.getSettlementStatus(req.user.userId, topUpId);
+  }
 }
+
+
+
+
+
+
+
+
 
 
 

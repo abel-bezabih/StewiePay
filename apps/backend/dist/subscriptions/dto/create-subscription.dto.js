@@ -15,7 +15,7 @@ class CreateSubscriptionDto {
 }
 exports.CreateSubscriptionDto = CreateSubscriptionDto;
 __decorate([
-    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateSubscriptionDto.prototype, "cardId", void 0);
 __decorate([
@@ -25,9 +25,14 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateSubscriptionDto.prototype, "amountHint", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSubscriptionDto.prototype, "currency", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),

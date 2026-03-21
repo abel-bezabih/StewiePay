@@ -1,7 +1,7 @@
-import { IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CreateSubscriptionDto {
-  @IsString()
+  @IsUUID()
   cardId!: string;
 
   @IsString()
@@ -9,17 +9,15 @@ export class CreateSubscriptionDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   amountHint?: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @IsOptional()
   @IsDateString()
   nextExpectedCharge?: string;
 }
-
-
-
-
-
-
 

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +27,7 @@ export const CardsScreenStewie = ({ navigation }: any) => {
   const { user } = useAuth();
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -46,6 +48,20 @@ export const CardsScreenStewie = ({ navigation }: any) => {
   }, [navigation]);
 
   const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('CreateCard');
   };
@@ -53,6 +69,26 @@ export const CardsScreenStewie = ({ navigation }: any) => {
   const handleCardPress = (cardId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('CardDetail', { cardId });
+  };
+
+  const handleQuickFreezeToggle = async (card: any) => {
+    if (!card?.id || togglingCardId) return;
+    setTogglingCardId(card.id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      if (card.status === 'FROZEN') {
+        await CardsAPI.unfreeze(card.id);
+      } else {
+        await CardsAPI.freeze(card.id);
+      }
+      await load();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.error('Failed to toggle card freeze status:', e);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setTogglingCardId(null);
+    }
   };
 
   // Calculate stats
@@ -65,12 +101,29 @@ export const CardsScreenStewie = ({ navigation }: any) => {
     <View style={styles.container}>
       {/* StewiePay Header */}
       <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-        <StewieText variant="headlineLarge" color="primary" weight="black">
-          Your Cards
-        </StewieText>
-        <StewieText variant="bodyMedium" color="muted" style={{ marginTop: StewiePayBrand.spacing.xs }}>
-          {totalCards} {totalCards === 1 ? 'card' : 'cards'} • {activeCards} active
-        </StewieText>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <StewieText variant="headlineLarge" color="primary" weight="black" style={{ color: StewiePayBrand.colors.primary }}>
+              Cards
+            </StewieText>
+            <StewieText variant="bodyMedium" color="muted" style={{ marginTop: StewiePayBrand.spacing.xs }}>
+              {totalCards} {totalCards === 1 ? 'card' : 'cards'} • {activeCards} active
+            </StewieText>
+          </View>
+          <TouchableOpacity onPress={handleCreateCard} activeOpacity={0.85}>
+            <LinearGradient
+              colors={StewiePayBrand.colors.gradients.primary as [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.topCreateButton}
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <StewieText variant="labelMedium" color="onPrimary" weight="bold" style={{ marginLeft: 6 }}>
+                Create
+              </StewieText>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {loading && cards.length === 0 ? (
@@ -81,11 +134,6 @@ export const CardsScreenStewie = ({ navigation }: any) => {
           <View style={styles.header}>
             <SkeletonLoader width={200} height={32} borderRadius={8} />
             <SkeletonLoader width={150} height={16} borderRadius={8} style={{ marginTop: 8 }} />
-          </View>
-          <View style={styles.statsContainer}>
-            {[1, 2, 3].map((i) => (
-              <SkeletonLoader key={i} width="30%" height={80} borderRadius={StewiePayBrand.radius.lg} />
-            ))}
           </View>
           <SkeletonList count={2} />
         </ScrollView>
@@ -123,37 +171,7 @@ export const CardsScreenStewie = ({ navigation }: any) => {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={StewiePayBrand.colors.primary} />}
           contentContainerStyle={styles.listContainer}
-          ListHeaderComponent={
-            <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              {/* Quick Stats */}
-              <View style={styles.statsContainer}>
-                <GlassCard elevated intensity={15} style={styles.statCard}>
-                  <StewieText variant="labelSmall" color="muted" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                    Active
-                  </StewieText>
-                  <StewieText variant="headlineMedium" color="primary" weight="bold">
-                    {activeCards}
-                  </StewieText>
-                </GlassCard>
-                <GlassCard elevated intensity={15} style={styles.statCard}>
-                  <StewieText variant="labelSmall" color="muted" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                    Frozen
-                  </StewieText>
-                  <StewieText variant="headlineMedium" color="primary" weight="bold">
-                    {frozenCards}
-                  </StewieText>
-                </GlassCard>
-                <GlassCard elevated intensity={15} style={styles.statCard}>
-                  <StewieText variant="labelSmall" color="muted" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                    Total
-                  </StewieText>
-                  <StewieText variant="headlineMedium" color="primary" weight="bold">
-                    {totalCards}
-                  </StewieText>
-                </GlassCard>
-              </View>
-            </Animated.View>
-          }
+          ListHeaderComponent={null}
           renderItem={({ item, index }) => (
             <Animated.View
               entering={FadeInDown.delay(150 + index * 50).duration(400)}
@@ -190,11 +208,9 @@ export const CardsScreenStewie = ({ navigation }: any) => {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      // Quick freeze/unfreeze
-                    }}
+                    onPress={() => handleQuickFreezeToggle(item)}
                     activeOpacity={0.7}
+                    disabled={togglingCardId === item.id}
                   >
                     <Ionicons 
                       name={item.status === 'FROZEN' ? 'snow-outline' : 'snow'} 
@@ -206,7 +222,7 @@ export const CardsScreenStewie = ({ navigation }: any) => {
                       color={item.status === 'FROZEN' ? 'warning' : 'muted'} 
                       style={{ marginTop: 4 }}
                     >
-                      {item.status === 'FROZEN' ? 'Frozen' : 'Freeze'}
+                      {togglingCardId === item.id ? 'Updating...' : item.status === 'FROZEN' ? 'Unfreeze' : 'Freeze'}
                     </StewieText>
                   </TouchableOpacity>
                 </View>
@@ -249,6 +265,11 @@ const styles = StyleSheet.create({
     paddingBottom: StewiePayBrand.spacing.lg,
     paddingHorizontal: StewiePayBrand.spacing.lg,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: StewiePayBrand.spacing.md,
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: 'transparent', // Transparent to show FintechBackground
@@ -256,17 +277,6 @@ const styles = StyleSheet.create({
   loadingContent: {
     padding: StewiePayBrand.spacing.lg,
     paddingTop: 80,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: StewiePayBrand.spacing.sm,
-    paddingHorizontal: StewiePayBrand.spacing.lg,
-    marginBottom: StewiePayBrand.spacing.lg,
-  },
-  statCard: {
-    flex: 1,
-    padding: StewiePayBrand.spacing.md,
-    alignItems: 'center',
   },
   listContainer: {
     paddingTop: StewiePayBrand.spacing.sm,
@@ -305,6 +315,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: StewiePayBrand.spacing.lg,
     borderRadius: StewiePayBrand.radius.lg,
     ...StewiePayBrand.shadows.md,
+  },
+  topCreateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: StewiePayBrand.spacing.sm,
+    paddingHorizontal: StewiePayBrand.spacing.md,
+    borderRadius: StewiePayBrand.radius.lg,
+    ...StewiePayBrand.shadows.sm,
   },
   fab: {
     position: 'absolute',

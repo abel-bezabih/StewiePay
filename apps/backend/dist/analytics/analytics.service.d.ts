@@ -16,34 +16,4 @@ export declare class AnalyticsService {
         count: number;
         percentage: number;
     }[]>;
-    categoryTrends(userId: string, months?: number): Promise<{
-        category: string;
-        data: {
-            month: string;
-            amount: number;
-        }[];
-    }[]>;
-    topCategories(userId: string, limit?: number): Promise<{
-        category: string;
-        amount: number;
-        count: number;
-        percentage: number;
-    }[]>;
-    spendingInsights(userId: string): Promise<{
-        totalSpend: number;
-        averageTransaction: number;
-        totalTransactions: number;
-        topCategory: null;
-        monthlyAverage: number;
-        monthlySpend?: undefined;
-        monthlyChange?: undefined;
-    } | {
-        totalSpend: number;
-        averageTransaction: number;
-        totalTransactions: number;
-        topCategory: string | null;
-        monthlySpend: number;
-        monthlyChange: number;
-        monthlyAverage: number;
-    }>;
 }

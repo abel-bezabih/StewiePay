@@ -11,10 +11,14 @@ type JwtPayload = {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be set in production');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'dev-secret'
+      secretOrKey: secret || 'dev-secret'
     });
   }
 
@@ -22,6 +26,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }
+
+
+
+
+
+
+
+
 
 
 

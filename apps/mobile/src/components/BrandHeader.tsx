@@ -46,7 +46,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
     };
   });
 
-  const gradientColors = StewiePayBrand.colors.gradients[gradient] || StewiePayBrand.colors.gradients.primary;
+  const gradientColors = (StewiePayBrand.colors.gradients[gradient] || StewiePayBrand.colors.gradients.primary) as [string, string, ...string[]];
 
   return (
     <LinearGradient
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: StewiePayBrand.typography.fontSize['2xl'],
-    fontWeight: StewiePayBrand.typography.fontWeight.extrabold,
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 1
   },

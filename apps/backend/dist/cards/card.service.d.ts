@@ -1,10 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCardDto } from './dto/create-card.dto';
-import { DummyIssuerAdapter } from '../integrations/issuer/dummy-issuer.adapter';
+import { IssuerAdapter } from '../integrations/issuer/issuer.adapter';
 import { UsersService } from '../users/user.service';
 import { TimeWindowService } from './time-window.service';
 import { UpdateTimeWindowDto } from './dto/update-time-window.dto';
 import { NotificationService } from '../notifications/notification.service';
+import { UpdateCardLimitsDto } from './dto/update-card-limits.dto';
 export declare class CardsService {
     private prisma;
     private issuer;
@@ -12,8 +13,7 @@ export declare class CardsService {
     private timeWindowService;
     private notificationService;
     private readonly MAX_CARDS_PER_USER;
-    private readonly MAX_CARDS_PER_ORG;
-    constructor(prisma: PrismaService, issuer: DummyIssuerAdapter, usersService: UsersService, timeWindowService: TimeWindowService, notificationService: NotificationService);
+    constructor(prisma: PrismaService, issuer: IssuerAdapter, usersService: UsersService, timeWindowService: TimeWindowService, notificationService: NotificationService);
     /**
      * Verify user account is in good standing
      */
@@ -26,10 +26,7 @@ export declare class CardsService {
      * Validate card limits are reasonable
      */
     private validateCardLimits;
-    /**
-     * Assert user has access to organization
-     */
-    private assertOrgAccess;
+    private validateLimitsUpdate;
     /**
      * Create a new card with full authentication and authorization checks
      */
@@ -37,9 +34,9 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -58,9 +55,9 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -79,9 +76,9 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -101,9 +98,9 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -122,9 +119,30 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
+        limitDaily: number | null;
+        limitMonthly: number | null;
+        limitPerTxn: number | null;
+        currency: string;
+        blockedCategories: string[];
+        allowedCategories: string[];
+        blockedMerchants: string[];
+        allowedMerchants: string[];
+        merchantLockMode: string | null;
+        timeWindowEnabled: boolean;
+        timeWindowConfig: string | null;
+        ownerUserId: string | null;
+        ownerOrgId: string | null;
+    }>;
+    updateLimits(cardId: string, userId: string, dto: UpdateCardLimitsDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.CardStatus;
+        type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -143,9 +161,9 @@ export declare class CardsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;

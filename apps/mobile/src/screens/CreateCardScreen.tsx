@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Text } from '../components/Text';
 import { useTheme } from '../theme';
 import { CardsAPI } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 
 const CARD_TYPES = [
@@ -16,6 +17,7 @@ const CARD_TYPES = [
 
 export const CreateCardScreen = ({ navigation, route }: any) => {
   const { colors, spacing, radius } = useTheme();
+  const { user } = useAuth();
   const [selectedType, setSelectedType] = useState('PERMANENT');
   const [limits, setLimits] = useState({ daily: '', monthly: '', perTxn: '' });
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,20 @@ export const CreateCardScreen = ({ navigation, route }: any) => {
   const orgId = route?.params?.orgId;
 
   const handleCreate = async () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
     setLoading(true);
     setError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -218,6 +234,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   }
 });
+
+
+
+
+
+
+
+
 
 
 

@@ -1,7 +1,21 @@
 module.exports = {
-  extends: ['@stewiepay/eslint-config'],
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint'],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  parserOptions: {
+    ecmaVersion: 2020,
+    sourceType: 'module'
+  },
   ignorePatterns: ['node_modules/*', 'dist/*', '.turbo/*']
 };
+
+
+
+
+
+
+
+
 
 
 

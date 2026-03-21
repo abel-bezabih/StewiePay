@@ -8,12 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CardsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
-const dummy_issuer_adapter_1 = require("../integrations/issuer/dummy-issuer.adapter");
+const issuer_adapter_1 = require("../integrations/issuer/issuer.adapter");
 const user_service_1 = require("../users/user.service");
 const time_window_service_1 = require("./time-window.service");
 const notification_service_1 = require("../notifications/notification.service");
@@ -26,7 +29,6 @@ let CardsService = class CardsService {
         this.notificationService = notificationService;
         // Maximum cards per user (can be made configurable)
         this.MAX_CARDS_PER_USER = 50;
-        this.MAX_CARDS_PER_ORG = 100;
     }
     /**
      * Verify user account is in good standing
@@ -36,32 +38,18 @@ let CardsService = class CardsService {
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
-        // Add future checks here:
-        // - Email verification status
-        // - Account suspension
-        // - KYC completion
-        // - Payment method on file
+        await this.usersService.assertPaymentKycEligible(userId, 'create a card');
         return user;
     }
     /**
      * Check if user has reached card creation limit
      */
-    async checkCardCreationLimit(userId, orgId) {
-        if (orgId) {
-            const orgCardCount = await this.prisma.card.count({
-                where: { ownerOrgId: orgId, status: { not: client_1.CardStatus.CLOSED } }
-            });
-            if (orgCardCount >= this.MAX_CARDS_PER_ORG) {
-                throw new common_1.ForbiddenException(`Organization has reached the maximum card limit of ${this.MAX_CARDS_PER_ORG}`);
-            }
-        }
-        else {
-            const userCardCount = await this.prisma.card.count({
-                where: { ownerUserId: userId, status: { not: client_1.CardStatus.CLOSED } }
-            });
-            if (userCardCount >= this.MAX_CARDS_PER_USER) {
-                throw new common_1.ForbiddenException(`You have reached the maximum card limit of ${this.MAX_CARDS_PER_USER}`);
-            }
+    async checkCardCreationLimit(userId) {
+        const userCardCount = await this.prisma.card.count({
+            where: { ownerUserId: userId, status: { not: client_1.CardStatus.CLOSED } }
+        });
+        if (userCardCount >= this.MAX_CARDS_PER_USER) {
+            throw new common_1.ForbiddenException(`You have reached the maximum card limit of ${this.MAX_CARDS_PER_USER}`);
         }
     }
     /**
@@ -86,29 +74,25 @@ let CardsService = class CardsService {
             throw new common_1.BadRequestException('Per-transaction limit cannot exceed daily limit');
         }
     }
-    /**
-     * Assert user has access to organization
-     */
-    async assertOrgAccess(userId, orgId) {
-        const org = await this.prisma.organization.findUnique({
-            where: { id: orgId },
-            include: {
-                members: { where: { userId } }
-            }
-        });
-        if (!org)
-            throw new common_1.NotFoundException('Organization not found');
-        const isOwner = org.ownerId === userId;
-        const isAdmin = org.members.some((m) => m.role === client_1.OrgRole.ADMIN);
-        const isMember = org.members.some((m) => m.role === client_1.OrgRole.MEMBER);
-        if (!(isOwner || isAdmin || isMember)) {
-            throw new common_1.UnauthorizedException('Not a member of this organization');
+    validateLimitsUpdate(dto) {
+        if (dto.limitDaily !== undefined && dto.limitDaily !== null && dto.limitDaily < 0) {
+            throw new common_1.BadRequestException('Daily limit must be positive');
         }
-        // Only owners and admins can create cards for orgs
-        if (!(isOwner || isAdmin)) {
-            throw new common_1.ForbiddenException('Only organization owners and admins can create cards');
+        if (dto.limitMonthly !== undefined && dto.limitMonthly !== null && dto.limitMonthly < 0) {
+            throw new common_1.BadRequestException('Monthly limit must be positive');
         }
-        return { org, isOwnerOrAdmin: isOwner || isAdmin };
+        if (dto.limitPerTxn !== undefined && dto.limitPerTxn !== null && dto.limitPerTxn < 0) {
+            throw new common_1.BadRequestException('Per-transaction limit must be positive');
+        }
+        const daily = dto.limitDaily ?? undefined;
+        const monthly = dto.limitMonthly ?? undefined;
+        const perTxn = dto.limitPerTxn ?? undefined;
+        if (daily && monthly && daily > monthly) {
+            throw new common_1.BadRequestException('Daily limit cannot exceed monthly limit');
+        }
+        if (perTxn && daily && perTxn > daily) {
+            throw new common_1.BadRequestException('Per-transaction limit cannot exceed daily limit');
+        }
     }
     /**
      * Create a new card with full authentication and authorization checks
@@ -118,18 +102,10 @@ let CardsService = class CardsService {
         await this.verifyUserAccount(userId);
         // 2. Validate card limits
         this.validateCardLimits(dto);
-        // 3. Check organization access if orgId provided
-        let ownerUserId;
-        let ownerOrgId;
-        if (dto.orgId) {
-            await this.assertOrgAccess(userId, dto.orgId);
-            ownerOrgId = dto.orgId;
-        }
-        else {
-            ownerUserId = userId;
-        }
+        // 3. Cards are owned by the user in V1
+        const ownerUserId = userId;
         // 4. Check card creation limits
-        await this.checkCardCreationLimit(userId, dto.orgId);
+        await this.checkCardCreationLimit(userId);
         // 5. Validate card type
         const type = dto.type ?? client_1.CardType.PERMANENT;
         const currency = dto.currency ?? 'ETB';
@@ -137,7 +113,7 @@ let CardsService = class CardsService {
         let issuerCard;
         try {
             issuerCard = await this.issuer.issueCard({
-                ownerReference: dto.orgId ?? userId,
+                ownerReference: userId,
                 type,
                 limitDaily: dto.limitDaily,
                 limitMonthly: dto.limitMonthly,
@@ -159,8 +135,7 @@ let CardsService = class CardsService {
                     limitMonthly: dto.limitMonthly,
                     limitPerTxn: dto.limitPerTxn,
                     currency,
-                    ownerUserId,
-                    ownerOrgId
+                    ownerUserId
                 }
             });
             // TODO: Log card creation event for audit trail
@@ -180,14 +155,9 @@ let CardsService = class CardsService {
         }
     }
     async listForUser(userId) {
-        const orgMemberships = await this.prisma.organizationMember.findMany({
-            where: { userId },
-            select: { organizationId: true }
-        });
-        const orgIds = orgMemberships.map((m) => m.organizationId);
         return this.prisma.card.findMany({
             where: {
-                OR: [{ ownerUserId: userId }, ...(orgIds.length ? [{ ownerOrgId: { in: orgIds } }] : [])]
+                ownerUserId: userId
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -198,30 +168,12 @@ let CardsService = class CardsService {
             throw new common_1.NotFoundException('Card not found');
         if (card.ownerUserId === userId)
             return card;
-        if (card.ownerOrgId) {
-            const membership = await this.prisma.organizationMember.findFirst({
-                where: { organizationId: card.ownerOrgId, userId }
-            });
-            if (membership || (await this.prisma.organization.findFirst({ where: { id: card.ownerOrgId, ownerId: userId } }))) {
-                return card;
-            }
-        }
         throw new common_1.UnauthorizedException('No access to this card');
     }
     async getAccessibleCardIds(userId) {
         const cards = await this.prisma.card.findMany({
             where: {
-                OR: [
-                    { ownerUserId: userId },
-                    {
-                        ownerOrg: {
-                            OR: [
-                                { ownerId: userId },
-                                { members: { some: { userId } } }
-                            ]
-                        }
-                    }
-                ]
+                ownerUserId: userId
             },
             select: { id: true }
         });
@@ -235,12 +187,9 @@ let CardsService = class CardsService {
             data: { status: client_1.CardStatus.FROZEN }
         });
         // Send notification
-        const ownerUserId = card.ownerUserId || (card.ownerOrgId
-            ? (await this.prisma.organization.findUnique({ where: { id: card.ownerOrgId }, select: { ownerId: true } }))?.ownerId
-            : null);
-        if (ownerUserId) {
+        if (card.ownerUserId) {
             this.notificationService
-                .notifyCardStatusChange(ownerUserId, cardId, 'FROZEN')
+                .notifyCardStatusChange(card.ownerUserId, cardId, 'FROZEN')
                 .catch((err) => console.error('Notification failed:', err));
         }
         return updated;
@@ -253,15 +202,24 @@ let CardsService = class CardsService {
             data: { status: client_1.CardStatus.ACTIVE }
         });
         // Send notification
-        const ownerUserId = card.ownerUserId || (card.ownerOrgId
-            ? (await this.prisma.organization.findUnique({ where: { id: card.ownerOrgId }, select: { ownerId: true } }))?.ownerId
-            : null);
-        if (ownerUserId) {
+        if (card.ownerUserId) {
             this.notificationService
-                .notifyCardStatusChange(ownerUserId, cardId, 'ACTIVE')
+                .notifyCardStatusChange(card.ownerUserId, cardId, 'ACTIVE')
                 .catch((err) => console.error('Notification failed:', err));
         }
         return updated;
+    }
+    async updateLimits(cardId, userId, dto) {
+        const card = await this.getAccessibleCard(cardId, userId);
+        this.validateLimitsUpdate(dto);
+        return this.prisma.card.update({
+            where: { id: card.id },
+            data: {
+                limitDaily: dto.limitDaily === null ? null : dto.limitDaily ?? card.limitDaily,
+                limitMonthly: dto.limitMonthly === null ? null : dto.limitMonthly ?? card.limitMonthly,
+                limitPerTxn: dto.limitPerTxn === null ? null : dto.limitPerTxn ?? card.limitPerTxn
+            }
+        });
     }
     async updateTimeWindow(cardId, userId, dto) {
         const card = await this.getAccessibleCard(cardId, userId);
@@ -304,9 +262,8 @@ let CardsService = class CardsService {
 exports.CardsService = CardsService;
 exports.CardsService = CardsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        dummy_issuer_adapter_1.DummyIssuerAdapter,
-        user_service_1.UsersService,
+    __param(1, (0, common_1.Inject)(issuer_adapter_1.ISSUER_ADAPTER)),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, Object, user_service_1.UsersService,
         time_window_service_1.TimeWindowService,
         notification_service_1.NotificationService])
 ], CardsService);

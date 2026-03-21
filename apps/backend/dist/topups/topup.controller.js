@@ -31,6 +31,9 @@ let TopUpController = class TopUpController {
     list(req) {
         return this.topupService.list(req.user.userId);
     }
+    reconciliation(req, topUpId) {
+        return this.topupService.getSettlementStatus(req.user.userId, topUpId);
+    }
 };
 exports.TopUpController = TopUpController;
 __decorate([
@@ -56,6 +59,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], TopUpController.prototype, "list", null);
+__decorate([
+    (0, common_1.Get)(':id/reconciliation'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], TopUpController.prototype, "reconciliation", null);
 exports.TopUpController = TopUpController = __decorate([
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('topups'),

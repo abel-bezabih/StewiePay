@@ -8,7 +8,10 @@ export enum IssuerWebhookEventType {
   CARD_FROZEN = 'card.frozen',
   CARD_UNFROZEN = 'card.unfrozen',
   CARD_CLOSED = 'card.closed',
-  CARD_LIMIT_UPDATED = 'card.limit_updated'
+  CARD_LIMIT_UPDATED = 'card.limit_updated',
+  FUNDING_LOADED = 'funding.loaded',
+  FUNDING_FAILED = 'funding.failed',
+  FUNDING_PENDING = 'funding.pending'
 }
 
 export class TransactionWebhookData {
@@ -56,6 +59,27 @@ export class CardWebhookData {
   limitPerTxn?: number;
 }
 
+export class FundingWebhookData {
+  @IsString()
+  topUpReference!: string;
+
+  @IsOptional()
+  @IsString()
+  providerReference?: string;
+
+  @IsOptional()
+  @IsString()
+  issuerReference?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsDateString()
+  timestamp?: string;
+}
+
 export class IssuerWebhookDto {
   @IsEnum(IssuerWebhookEventType)
   eventType!: IssuerWebhookEventType;
@@ -77,9 +101,22 @@ export class IssuerWebhookDto {
   card?: CardWebhookData;
 
   @IsOptional()
+  @ValidateNested()
+  @Type(() => FundingWebhookData)
+  funding?: FundingWebhookData;
+
+  @IsOptional()
   @IsString()
   signature?: string; // For webhook signature verification
 }
+
+
+
+
+
+
+
+
 
 
 

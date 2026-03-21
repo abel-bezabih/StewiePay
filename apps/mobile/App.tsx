@@ -1,47 +1,50 @@
-import 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View } from 'react-native';
-import { AuthProvider } from './src/contexts/AuthContext';
-import { OnboardingProvider } from './src/contexts/OnboardingContext';
-import { NotificationProvider } from './src/contexts/NotificationContext';
-import { AppContent } from './src/components/AppInitializer';
-import { ErrorBoundary } from './src/components/ErrorBoundary';
-import { FintechBackground } from './src/components/FintechBackground';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+
+let AppRoot: React.ComponentType | null = null;
+let loadError: string | null = null;
+
+try {
+  AppRoot = require('./src/AppRoot').default;
+} catch (error) {
+  loadError = error instanceof Error ? (error.stack || error.message) : String(error);
+  console.error('[App] Failed to load AppRoot:', loadError);
+}
 
 export default function App() {
-  return (
-    <ErrorBoundary>
-      <FintechBackground>
-        <SafeAreaProvider>
-          <OnboardingProvider>
-            <AuthProvider>
-              <NotificationProvider>
-                <NavigationContainer
-                  theme={{
-                    dark: false,
-                    colors: {
-                      primary: '#5B21B6',
-                      background: 'transparent',
-                      card: 'transparent',
-                      text: '#000000',
-                      border: 'transparent',
-                      notification: '#5B21B6',
-                    },
-                  }}
-                >
-                  <AppContent />
-                  <StatusBar style="light" />
-                </NavigationContainer>
-              </NotificationProvider>
-            </AuthProvider>
-          </OnboardingProvider>
-        </SafeAreaProvider>
-      </FintechBackground>
-    </ErrorBoundary>
-  );
+  if (!AppRoot) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>App failed to load</Text>
+        <ScrollView style={styles.scroll}>
+          <Text style={styles.error}>{loadError || 'Unknown error'}</Text>
+        </ScrollView>
+      </View>
+    );
+  }
+  return <AppRoot />;
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    padding: 16,
+    paddingTop: 48,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  scroll: {
+    flex: 1,
+  },
+  error: {
+    color: '#ff6b6b',
+    fontSize: 12,
+  },
+});
 
 

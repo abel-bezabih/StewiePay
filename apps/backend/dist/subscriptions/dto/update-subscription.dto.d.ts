@@ -1,6 +1,7 @@
 export declare class UpdateSubscriptionDto {
     merchant?: string;
-    amountHint?: number;
-    nextExpectedCharge?: string;
-    lastChargeAt?: string;
+    amountHint?: number | null;
+    currency?: string;
+    nextExpectedCharge?: string | null;
+    lastChargeAt?: string | null;
 }

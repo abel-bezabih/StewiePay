@@ -1,6 +1,6 @@
 // @ts-nocheck - Premium screen not in use, using react-native-paper which is not installed
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Alert } from 'react-native';
 // These imports are commented out as react-native-paper is not installed
 // The screen is not currently used in navigation
 /*
@@ -45,6 +45,24 @@ export const CardsScreenV2 = ({ navigation }: any) => {
     return unsubscribe;
   }, [navigation]);
 
+  const handleCreateCard = () => {
+    const kycStatus = (user as any)?.kycStatus || 'PENDING';
+    if (kycStatus !== 'VERIFIED') {
+      const message =
+        kycStatus === 'SUBMITTED'
+          ? 'Your KYC is under review. Card creation will unlock after approval.'
+          : kycStatus === 'REJECTED'
+            ? `KYC rejected: ${(user as any)?.kycRejectionReason || 'Please resubmit to continue.'}`
+            : 'Please complete KYC to create cards.';
+      Alert.alert('KYC required', message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open KYC', onPress: () => navigation.navigate('KycVerification') }
+      ]);
+      return;
+    }
+    navigation.navigate('CreateCard');
+  };
+
   const getStatusChip = (status: string) => {
     const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
       ACTIVE: { label: 'Active', color: theme.colors.primaryContainer, icon: '✓' },
@@ -80,7 +98,7 @@ export const CardsScreenV2 = ({ navigation }: any) => {
             icon="plus"
             size={28}
             iconColor={theme.colors.primary}
-            onPress={() => navigation.navigate('CreateCard')}
+            onPress={handleCreateCard}
             style={{ backgroundColor: theme.colors.primaryContainer }}
           />
         </View>
@@ -88,7 +106,7 @@ export const CardsScreenV2 = ({ navigation }: any) => {
 
       {loading && cards.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size={32} color={theme.colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -145,7 +163,7 @@ export const CardsScreenV2 = ({ navigation }: any) => {
                 title="No cards yet"
                 subtitle="Create your first card to start controlling your spend with limits, merchant locks, and more."
                 actionLabel="Create Card"
-                onAction={() => navigation.navigate('CreateCard')}
+                onAction={handleCreateCard}
               />
             ) : null
           }
@@ -155,7 +173,7 @@ export const CardsScreenV2 = ({ navigation }: any) => {
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateCard')}
+        onPress={handleCreateCard}
         label="New Card"
       />
     </View>

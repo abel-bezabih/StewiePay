@@ -13,10 +13,10 @@ const { width, height } = Dimensions.get('window');
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   useEffect(() => {
-    // Show splash for at least 1.5 seconds for brand impression
+    // Show splash for at least 0.9 seconds for brand impression
     const timer = setTimeout(() => {
       onFinish();
-    }, 1500);
+    }, 900);
 
     return () => clearTimeout(timer);
   }, [onFinish]);
@@ -42,7 +42,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           >
             <StewieText
               variant="headlineLarge"
-              color="primary"
+              color="onPrimary"
               weight="black"
               style={styles.brandName}
             >
@@ -69,7 +69,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
               </View>
               <StewieText
                 variant="labelSmall"
-                color="primary"
+                color="onPrimary"
                 weight="semibold"
                 style={styles.cardBrandNameText}
               >

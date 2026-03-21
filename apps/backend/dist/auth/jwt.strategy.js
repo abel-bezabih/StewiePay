@@ -15,10 +15,14 @@ const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     constructor() {
+        const secret = process.env.JWT_SECRET;
+        if (!secret && process.env.NODE_ENV === 'production') {
+            throw new Error('JWT_SECRET must be set in production');
+        }
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET || 'dev-secret'
+            secretOrKey: secret || 'dev-secret'
         });
     }
     async validate(payload) {

@@ -1,12 +1,21 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { InitiateTopUpDto } from './dto/initiate-topup.dto';
-import { DummyPspAdapter } from '../integrations/psp/dummy-psp.adapter';
+import { PspAdapter } from '../integrations/psp/psp.adapter';
+import { UsersService } from '../users/user.service';
 export declare class TopUpService {
     private prisma;
     private psp;
-    constructor(prisma: PrismaService, psp: DummyPspAdapter);
+    private usersService;
+    private readonly MAX_TOPUP_PER_TXN;
+    private readonly MAX_TOPUP_DAILY;
+    private readonly MAX_TOPUP_MONTHLY;
+    private readonly LIMITED_TOPUP_PER_TXN;
+    private readonly LIMITED_TOPUP_DAILY;
+    private readonly LIMITED_TOPUP_MONTHLY;
+    constructor(prisma: PrismaService, psp: PspAdapter, usersService: UsersService);
     private assertOrgAccess;
     initiate(userId: string, dto: InitiateTopUpDto): Promise<{
+        checkoutUrl: string | undefined;
         id: string;
         createdAt: Date;
         userId: string | null;
@@ -16,7 +25,13 @@ export declare class TopUpService {
         orgId: string | null;
         amount: number;
         reference: string;
+        fundingState: import(".prisma/client").$Enums.TopUpFundingState;
+        pspCompletedAt: Date | null;
+        issuerLoadedAt: Date | null;
+        settlementFailureReason: string | null;
     }>;
+    private getTopUpLimitsForTier;
+    private assertTopUpLimits;
     verify(userId: string, topUpId: string): Promise<{
         id: string;
         createdAt: Date;
@@ -27,6 +42,10 @@ export declare class TopUpService {
         orgId: string | null;
         amount: number;
         reference: string;
+        fundingState: import(".prisma/client").$Enums.TopUpFundingState;
+        pspCompletedAt: Date | null;
+        issuerLoadedAt: Date | null;
+        settlementFailureReason: string | null;
     }>;
     list(userId: string): Promise<{
         id: string;
@@ -38,5 +57,38 @@ export declare class TopUpService {
         orgId: string | null;
         amount: number;
         reference: string;
+        fundingState: import(".prisma/client").$Enums.TopUpFundingState;
+        pspCompletedAt: Date | null;
+        issuerLoadedAt: Date | null;
+        settlementFailureReason: string | null;
     }[]>;
+    getSettlementStatus(userId: string, topUpId: string): Promise<{
+        topUp: {
+            id: string;
+            createdAt: Date;
+            userId: string | null;
+            status: import(".prisma/client").$Enums.TopUpStatus;
+            provider: string;
+            currency: string;
+            orgId: string | null;
+            amount: number;
+            reference: string;
+            fundingState: import(".prisma/client").$Enums.TopUpFundingState;
+            pspCompletedAt: Date | null;
+            issuerLoadedAt: Date | null;
+            settlementFailureReason: string | null;
+        };
+        events: {
+            id: string;
+            createdAt: Date;
+            message: string | null;
+            topUpId: string;
+            source: string;
+            eventType: string;
+            fromState: import(".prisma/client").$Enums.TopUpFundingState | null;
+            toState: import(".prisma/client").$Enums.TopUpFundingState;
+            payload: import("@prisma/client/runtime/library").JsonValue | null;
+        }[];
+    }>;
+    private logFundingEvent;
 }

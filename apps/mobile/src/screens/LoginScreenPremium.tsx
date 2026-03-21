@@ -26,6 +26,9 @@ export const LoginScreenPremium = ({ navigation }: any) => {
   const [password, setPassword] = useState('AdminPass123!');
   const [showPassword, setShowPassword] = useState(false);
 
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   const onSubmit = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await login(email, password);
@@ -87,10 +90,15 @@ export const LoginScreenPremium = ({ navigation }: any) => {
                   autoComplete="email"
                   left={<TextInput.Icon icon="email" />}
                   style={styles.input}
-                  error={!!error}
+                  error={!!error || (email && !isValidEmail(email))}
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />
+                {email && !isValidEmail(email) && (
+                  <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+                    Enter a valid email (example: name@gmail.com).
+                  </Text>
+                )}
 
                 <TextInput
                   label="Password"

@@ -69,7 +69,10 @@ export const StewieButton: React.FC<StewieButtonProps> = ({
             variant="labelLarge"
             weight="semibold"
             color={getTextColor(variant)}
-            style={icon ? { marginLeft: StewiePayBrand.spacing.sm } : undefined}
+            style={[
+              variant === 'primary' && { color: '#FFFFFF' },
+              icon ? { marginLeft: StewiePayBrand.spacing.sm } : undefined
+            ]}
           >
             {label}
           </StewieText>
@@ -87,7 +90,7 @@ export const StewieButton: React.FC<StewieButtonProps> = ({
         style={buttonStyle}
       >
         <LinearGradient
-          colors={StewiePayBrand.colors.gradients.primary}
+          colors={StewiePayBrand.colors.gradients.primary as [string, string, ...string[]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -116,7 +119,7 @@ export const StewieButton: React.FC<StewieButtonProps> = ({
 };
 
 function getTextColor(variant: ButtonVariant): 'primary' | 'brand' {
-  if (variant === 'primary') return 'primary';
+  if (variant === 'primary') return 'brand'; // Primary buttons use white text (overridden with style)
   return 'brand';
 }
 

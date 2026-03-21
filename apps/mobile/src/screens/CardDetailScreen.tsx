@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Switch } from 'react-native';
-import { CardsAPI, TransactionsAPI } from '../api/client';
+import { View, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Switch, TextInput, Alert } from 'react-native';
+import { CardsAPI, SubscriptionsAPI, TransactionsAPI } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
@@ -20,6 +20,121 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [stats, setStats] = useState({ today: 0, thisMonth: 0, transactions: 0 });
+  const [recentTxns, setRecentTxns] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [showSubscriptionForm, setShowSubscriptionForm] = useState(false);
+  const [editingSubscriptionId, setEditingSubscriptionId] = useState<string | null>(null);
+  const [subMerchant, setSubMerchant] = useState('');
+  const [subAmountHint, setSubAmountHint] = useState('');
+  const [subCurrency, setSubCurrency] = useState('ETB');
+  const [subNextCharge, setSubNextCharge] = useState('');
+  const [savingSubscription, setSavingSubscription] = useState(false);
+
+  const resetSubscriptionForm = () => {
+    setEditingSubscriptionId(null);
+    setSubMerchant('');
+    setSubAmountHint('');
+    setSubCurrency('ETB');
+    setSubNextCharge('');
+    setShowSubscriptionForm(false);
+  };
+
+  const loadSubscriptions = async () => {
+    setSubscriptionLoading(true);
+    try {
+      const resp = await SubscriptionsAPI.list({ cardId });
+      setSubscriptions(resp.data || []);
+    } catch (e) {
+      console.error('Failed to load subscriptions:', e);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const startCreateSubscription = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingSubscriptionId(null);
+    setSubMerchant('');
+    setSubAmountHint('');
+    setSubCurrency(card?.currency || 'ETB');
+    setSubNextCharge('');
+    setShowSubscriptionForm(true);
+  };
+
+  const startEditSubscription = (sub: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingSubscriptionId(sub.id);
+    setSubMerchant(sub.merchant || '');
+    setSubAmountHint(sub.amountHint != null ? String(sub.amountHint) : '');
+    setSubCurrency(sub.currency || card?.currency || 'ETB');
+    setSubNextCharge(sub.nextExpectedCharge ? String(sub.nextExpectedCharge).slice(0, 10) : '');
+    setShowSubscriptionForm(true);
+  };
+
+  const saveSubscription = async () => {
+    const merchant = subMerchant.trim();
+    if (!merchant) {
+      Alert.alert('Missing merchant', 'Please enter a merchant name.');
+      return;
+    }
+    const amountHint = subAmountHint.trim() ? Number(subAmountHint.trim()) : undefined;
+    if (amountHint !== undefined && (!Number.isFinite(amountHint) || amountHint < 0)) {
+      Alert.alert('Invalid amount', 'Amount hint must be a positive number.');
+      return;
+    }
+    const nextExpectedCharge = subNextCharge.trim() ? `${subNextCharge.trim()}T00:00:00.000Z` : undefined;
+
+    setSavingSubscription(true);
+    try {
+      if (editingSubscriptionId) {
+        await SubscriptionsAPI.update(editingSubscriptionId, {
+          merchant,
+          amountHint: amountHint ?? null,
+          currency: subCurrency.trim() || 'ETB',
+          nextExpectedCharge: nextExpectedCharge ?? null
+        });
+      } else {
+        await SubscriptionsAPI.create({
+          cardId,
+          merchant,
+          amountHint,
+          currency: subCurrency.trim() || 'ETB',
+          nextExpectedCharge
+        });
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await loadSubscriptions();
+      resetSubscriptionForm();
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error('Failed to save subscription:', e);
+      Alert.alert('Save failed', 'Could not save subscription right now.');
+    } finally {
+      setSavingSubscription(false);
+    }
+  };
+
+  const deleteSubscription = async (subscriptionId: string) => {
+    Alert.alert('Delete subscription', 'Are you sure you want to remove this subscription?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await SubscriptionsAPI.remove(subscriptionId);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await loadSubscriptions();
+          } catch (e) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            console.error('Failed to delete subscription:', e);
+            Alert.alert('Delete failed', 'Could not delete subscription right now.');
+          }
+        }
+      }
+    ]);
+  };
 
   const load = async () => {
     try {
@@ -33,10 +148,10 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
       const txns = txnsResp.data || [];
       const now = new Date();
       const today = txns.filter(
-        (t: any) => new Date(t.timestamp).toDateString() === now.toDateString(),
+        (t: any) => new Date(t.createdAt || t.timestamp).toDateString() === now.toDateString(),
       );
       const thisMonth = txns.filter(
-        (t: any) => new Date(t.timestamp).getMonth() === now.getMonth(),
+        (t: any) => new Date(t.createdAt || t.timestamp).getMonth() === now.getMonth(),
       );
 
       setStats({
@@ -44,6 +159,14 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
         thisMonth: thisMonth.reduce((sum: number, t: any) => sum + t.amount, 0),
         transactions: txns.length,
       });
+
+      const sorted = [...txns].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || a.timestamp || 0).getTime();
+        const dateB = new Date(b.createdAt || b.timestamp || 0).getTime();
+        return dateB - dateA;
+      });
+      setRecentTxns(sorted.slice(0, 3));
+      await loadSubscriptions();
     } catch (e) {
       console.error('Failed to load card:', e);
     } finally {
@@ -77,13 +200,26 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
   if (loading || !card) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={StewiePayBrand.colors.primary} />
+        <ActivityIndicator size={32} color={StewiePayBrand.colors.primary} />
         <StewieText variant="bodyMedium" color="muted" style={{ marginTop: StewiePayBrand.spacing.md }}>
           Loading card...
         </StewieText>
       </View>
     );
   }
+
+  const statusColor =
+    card.status === 'FROZEN'
+      ? StewiePayBrand.colors.error
+      : card.status === 'CLOSED'
+        ? StewiePayBrand.colors.textMuted
+        : StewiePayBrand.colors.success;
+  const statusLabel =
+    card.status === 'FROZEN'
+      ? 'Frozen'
+      : card.status === 'CLOSED'
+        ? 'Closed'
+        : 'Active';
 
   return (
     <View style={styles.container}>
@@ -99,6 +235,46 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
             status={card.status}
           />
         </View>
+
+        {/* Card Summary */}
+        <GlassCard elevated intensity={35} style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View>
+              <StewieText variant="labelSmall" color="muted">Type</StewieText>
+              <StewieText variant="titleMedium" color="primary" weight="semibold">
+                {String(card.type || 'PERMANENT').replace('_', ' ')}
+              </StewieText>
+            </View>
+            <View style={[styles.statusPill, { backgroundColor: `${statusColor}20` }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <StewieText variant="labelSmall" style={{ color: statusColor, marginLeft: StewiePayBrand.spacing.xs }} weight="semibold">
+                {statusLabel}
+              </StewieText>
+            </View>
+          </View>
+          <View style={styles.summaryRow}>
+            <View>
+              <StewieText variant="labelSmall" color="muted">Currency</StewieText>
+              <StewieText variant="titleMedium" color="primary" weight="semibold">
+                {card.currency || 'ETB'}
+              </StewieText>
+            </View>
+            <View>
+              <StewieText variant="labelSmall" color="muted">Limits</StewieText>
+              <StewieText variant="bodyMedium" color="muted">
+                {card.limitDaily ? `Daily ${card.limitDaily.toLocaleString()}` : 'No daily limit'}
+              </StewieText>
+            </View>
+          </View>
+          {card.type === 'BURNER' && (
+            <View style={styles.noticeRow}>
+              <Ionicons name="flash-outline" size={16} color={StewiePayBrand.colors.warning} />
+              <StewieText variant="bodySmall" style={styles.noticeText}>
+                Burner cards auto‑close after the first settled transaction.
+              </StewieText>
+            </View>
+          )}
+        </GlassCard>
 
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
@@ -138,18 +314,24 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
               <StewieText variant="titleMedium" color="primary" weight="semibold" style={{ marginBottom: StewiePayBrand.spacing.xs }}>
-                {card.status === 'FROZEN' ? 'Card Frozen' : 'Card Active'}
+                {card.status === 'FROZEN'
+                  ? 'Card is frozen'
+                  : card.status === 'CLOSED'
+                    ? 'Card is closed'
+                    : 'Card is active'}
               </StewieText>
               <StewieText variant="bodySmall" color="muted">
                 {card.status === 'FROZEN'
-                  ? 'This card is frozen and cannot be used'
-                  : 'Freeze this card to prevent all transactions'}
+                  ? 'This card cannot be used until it is unfrozen.'
+                  : card.status === 'CLOSED'
+                    ? 'This card is permanently closed.'
+                    : 'Freeze this card to instantly stop all transactions.'}
               </StewieText>
             </View>
             <Switch
               value={card.status === 'FROZEN'}
               onValueChange={toggleStatus}
-              disabled={toggling}
+              disabled={toggling || card.status === 'CLOSED'}
               trackColor={{
                 false: StewiePayBrand.colors.surfaceVariant,
                 true: StewiePayBrand.colors.error,
@@ -166,6 +348,183 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
             <LimitRow label="Monthly Limit" value={card.limitMonthly} currency="ETB" />
             <LimitRow label="Per Transaction" value={card.limitPerTxn} currency="ETB" />
           </View>
+        </GlassCard>
+
+        {/* Subscriptions */}
+        <GlassCard elevated intensity={35} style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <StewieText variant="titleLarge" color="primary" weight="bold">
+              Subscriptions
+            </StewieText>
+            <TouchableOpacity onPress={startCreateSubscription} style={styles.linkButton}>
+              <Ionicons name="add-circle-outline" size={18} color={StewiePayBrand.colors.primary} />
+              <StewieText variant="labelMedium" color="primary" weight="semibold">
+                Add
+              </StewieText>
+            </TouchableOpacity>
+          </View>
+
+          {showSubscriptionForm && (
+            <View style={styles.subscriptionForm}>
+              <StewieText variant="labelSmall" color="muted" style={styles.subscriptionLabel}>
+                Merchant
+              </StewieText>
+              <TextInput
+                value={subMerchant}
+                onChangeText={setSubMerchant}
+                placeholder="e.g. Netflix"
+                placeholderTextColor={StewiePayBrand.colors.textMuted}
+                style={styles.subscriptionInput}
+              />
+
+              <View style={styles.subscriptionFormRow}>
+                <View style={{ flex: 1 }}>
+                  <StewieText variant="labelSmall" color="muted" style={styles.subscriptionLabel}>
+                    Amount Hint
+                  </StewieText>
+                  <TextInput
+                    value={subAmountHint}
+                    onChangeText={setSubAmountHint}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    placeholderTextColor={StewiePayBrand.colors.textMuted}
+                    style={styles.subscriptionInput}
+                  />
+                </View>
+                <View style={{ width: 90 }}>
+                  <StewieText variant="labelSmall" color="muted" style={styles.subscriptionLabel}>
+                    Currency
+                  </StewieText>
+                  <TextInput
+                    value={subCurrency}
+                    onChangeText={setSubCurrency}
+                    autoCapitalize="characters"
+                    placeholder="ETB"
+                    placeholderTextColor={StewiePayBrand.colors.textMuted}
+                    style={styles.subscriptionInput}
+                  />
+                </View>
+              </View>
+
+              <StewieText variant="labelSmall" color="muted" style={styles.subscriptionLabel}>
+                Next Charge Date (YYYY-MM-DD)
+              </StewieText>
+              <TextInput
+                value={subNextCharge}
+                onChangeText={setSubNextCharge}
+                placeholder="2026-04-01"
+                placeholderTextColor={StewiePayBrand.colors.textMuted}
+                style={styles.subscriptionInput}
+              />
+
+              <View style={styles.subscriptionActionsRow}>
+                <TouchableOpacity onPress={resetSubscriptionForm} style={styles.subscriptionGhostButton}>
+                  <StewieText variant="labelMedium" color="muted">Cancel</StewieText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={saveSubscription}
+                  style={styles.subscriptionPrimaryButton}
+                  disabled={savingSubscription}
+                >
+                  {savingSubscription ? (
+                    <ActivityIndicator size={16} color="#FFFFFF" />
+                  ) : (
+                    <StewieText variant="labelMedium" color="onPrimary" weight="semibold">
+                      {editingSubscriptionId ? 'Save' : 'Create'}
+                    </StewieText>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {subscriptionLoading ? (
+            <View style={styles.subscriptionEmpty}>
+              <ActivityIndicator size={20} color={StewiePayBrand.colors.primary} />
+              <StewieText variant="bodySmall" color="muted" style={{ marginTop: 6 }}>
+                Loading subscriptions...
+              </StewieText>
+            </View>
+          ) : subscriptions.length === 0 ? (
+            <StewieText variant="bodyMedium" color="muted">
+              No subscriptions linked to this card yet.
+            </StewieText>
+          ) : (
+            <View style={styles.subscriptionList}>
+              {subscriptions.map((sub: any) => (
+                <View key={sub.id} style={styles.subscriptionRow}>
+                  <View style={{ flex: 1 }}>
+                    <StewieText variant="titleSmall" color="primary" weight="semibold">
+                      {sub.merchant}
+                    </StewieText>
+                    <StewieText variant="bodySmall" color="muted" style={{ marginTop: 2 }}>
+                      {sub.amountHint != null ? `${sub.currency} ${Number(sub.amountHint).toLocaleString()}` : 'No amount hint'}
+                      {sub.nextExpectedCharge ? ` • next ${new Date(sub.nextExpectedCharge).toLocaleDateString()}` : ''}
+                    </StewieText>
+                  </View>
+                  <View style={styles.subscriptionRowActions}>
+                    <TouchableOpacity onPress={() => startEditSubscription(sub)} style={styles.subscriptionIconBtn}>
+                      <Ionicons name="create-outline" size={16} color={StewiePayBrand.colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => deleteSubscription(sub.id)} style={styles.subscriptionIconBtn}>
+                      <Ionicons name="trash-outline" size={16} color={StewiePayBrand.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </GlassCard>
+
+        {/* Recent Activity */}
+        <GlassCard elevated intensity={35} style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <StewieText variant="titleLarge" color="primary" weight="bold">
+              Recent Activity
+            </StewieText>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Transactions', { cardId })}
+              style={styles.linkButton}
+            >
+              <StewieText variant="labelMedium" color="primary" weight="semibold">
+                View all
+              </StewieText>
+              <Ionicons name="chevron-forward" size={16} color={StewiePayBrand.colors.primary} />
+            </TouchableOpacity>
+          </View>
+          {recentTxns.length === 0 ? (
+            <StewieText variant="bodyMedium" color="muted">
+              No transactions yet.
+            </StewieText>
+          ) : (
+            <View style={styles.recentList}>
+              {recentTxns.map((txn: any) => (
+                <TouchableOpacity
+                  key={txn.id}
+                  style={styles.recentRow}
+                  onPress={() => navigation.navigate('TransactionDetail', { transaction: txn })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.recentLeft}>
+                    <View style={styles.recentIcon}>
+                      <Ionicons name="receipt-outline" size={16} color={StewiePayBrand.colors.primary} />
+                    </View>
+                    <View>
+                      <StewieText variant="bodyMedium" color="primary" weight="semibold">
+                        {txn.merchantName || 'Unknown Merchant'}
+                      </StewieText>
+                      <StewieText variant="bodySmall" color="muted">
+                        {new Date(txn.createdAt || txn.timestamp).toLocaleDateString()}
+                      </StewieText>
+                    </View>
+                  </View>
+                  <StewieText variant="bodyMedium" color="primary" weight="semibold">
+                    ETB {Math.abs(txn.amount).toLocaleString()}
+                  </StewieText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </GlassCard>
 
         {/* Merchant Locks */}
@@ -202,11 +561,27 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
             onPress={() => navigation.navigate('Transactions', { cardId })}
           />
           <ActionButton
+            icon={card.status === 'FROZEN' ? 'play-outline' : 'snow-outline'}
+            label={card.status === 'FROZEN' ? 'Unfreeze Card' : 'Freeze Card'}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleStatus();
+            }}
+            disabled={card.status === 'CLOSED' || toggling}
+          />
+          <ActionButton
             icon="settings-outline"
             label="Edit Limits"
             onPress={() => {
-              // TODO: Navigate to edit limits screen
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate('EditCardLimits', {
+                cardId,
+                limits: {
+                  limitDaily: card.limitDaily,
+                  limitMonthly: card.limitMonthly,
+                  limitPerTxn: card.limitPerTxn,
+                },
+              });
             }}
           />
         </View>
@@ -228,14 +603,24 @@ const LimitRow = ({ label, value, currency }: { label: string; value?: number; c
   );
 };
 
-const ActionButton = ({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) => {
+const ActionButton = ({
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) => {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.actionButton}>
-      <Ionicons name={icon} size={24} color={StewiePayBrand.colors.textPrimary} style={{ marginRight: StewiePayBrand.spacing.sm }} />
-      <StewieText variant="titleMedium" color="primary" weight="semibold" style={{ flex: 1 }}>
+    <TouchableOpacity onPress={onPress} style={styles.actionButton} disabled={disabled} activeOpacity={0.7}>
+      <Ionicons name={icon} size={24} color={disabled ? StewiePayBrand.colors.textMuted : StewiePayBrand.colors.textPrimary} style={{ marginRight: StewiePayBrand.spacing.sm }} />
+      <StewieText variant="titleMedium" color="primary" weight="semibold" style={{ flex: 1, color: disabled ? StewiePayBrand.colors.textMuted : StewiePayBrand.colors.textPrimary }}>
         {label}
       </StewieText>
-      <Ionicons name="chevron-forward" size={20} color={StewiePayBrand.colors.textMuted} />
+      <Ionicons name="chevron-forward" size={20} color={disabled ? StewiePayBrand.colors.textMuted : StewiePayBrand.colors.textMuted} />
     </TouchableOpacity>
   );
 };
@@ -256,6 +641,39 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: StewiePayBrand.spacing.lg,
   },
+  summaryCard: {
+    marginHorizontal: StewiePayBrand.spacing.md,
+    marginBottom: StewiePayBrand.spacing.md,
+    padding: StewiePayBrand.spacing.lg,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: StewiePayBrand.spacing.sm,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: StewiePayBrand.spacing.sm,
+    paddingVertical: StewiePayBrand.spacing.xs,
+    borderRadius: StewiePayBrand.radius.full,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: StewiePayBrand.spacing.xs,
+  },
+  noticeText: {
+    marginLeft: StewiePayBrand.spacing.sm,
+    color: StewiePayBrand.colors.warning,
+    flex: 1,
+  },
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: StewiePayBrand.spacing.md,
@@ -270,6 +688,39 @@ const styles = StyleSheet.create({
     marginHorizontal: StewiePayBrand.spacing.md,
     marginBottom: StewiePayBrand.spacing.md,
     padding: StewiePayBrand.spacing.lg,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: StewiePayBrand.spacing.sm,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: StewiePayBrand.spacing.xs,
+  },
+  recentList: {
+    gap: StewiePayBrand.spacing.sm,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: StewiePayBrand.spacing.sm,
+    flex: 1,
+  },
+  recentIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${StewiePayBrand.colors.primary}20`,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -288,6 +739,82 @@ const styles = StyleSheet.create({
   },
   limitsContainer: {
     gap: StewiePayBrand.spacing.md,
+  },
+  subscriptionForm: {
+    marginBottom: StewiePayBrand.spacing.md,
+    padding: StewiePayBrand.spacing.md,
+    backgroundColor: `${StewiePayBrand.colors.surfaceVariant}66`,
+    borderRadius: StewiePayBrand.radius.md,
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant
+  },
+  subscriptionLabel: {
+    marginBottom: 6
+  },
+  subscriptionInput: {
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant,
+    backgroundColor: StewiePayBrand.colors.surface,
+    borderRadius: StewiePayBrand.radius.md,
+    color: StewiePayBrand.colors.textPrimary,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10
+  },
+  subscriptionFormRow: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  subscriptionActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10
+  },
+  subscriptionGhostButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: StewiePayBrand.radius.md,
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant
+  },
+  subscriptionPrimaryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: StewiePayBrand.radius.md,
+    backgroundColor: StewiePayBrand.colors.primary,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  subscriptionEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: StewiePayBrand.spacing.md
+  },
+  subscriptionList: {
+    gap: 10
+  },
+  subscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: StewiePayBrand.colors.surfaceVariant,
+    borderRadius: StewiePayBrand.radius.md,
+    padding: StewiePayBrand.spacing.sm
+  },
+  subscriptionRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: StewiePayBrand.spacing.sm
+  },
+  subscriptionIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${StewiePayBrand.colors.surfaceVariant}88`
   },
   limitRow: {
     flexDirection: 'row',

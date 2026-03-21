@@ -10,19 +10,20 @@ exports.WebhookModule = void 0;
 const common_1 = require("@nestjs/common");
 const webhook_controller_1 = require("./webhook.controller");
 const webhook_service_1 = require("./webhook.service");
+const webhook_queue_service_1 = require("./webhook-queue.service");
 const prisma_module_1 = require("../prisma/prisma.module");
 const notification_module_1 = require("../notifications/notification.module");
-const subscription_module_1 = require("../subscriptions/subscription.module");
 const transaction_module_1 = require("../transactions/transaction.module");
+const integrations_module_1 = require("../integrations/integrations.module");
 let WebhookModule = class WebhookModule {
 };
 exports.WebhookModule = WebhookModule;
 exports.WebhookModule = WebhookModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, notification_module_1.NotificationsModule, subscription_module_1.SubscriptionsModule, transaction_module_1.TransactionsModule],
+        imports: [prisma_module_1.PrismaModule, notification_module_1.NotificationsModule, transaction_module_1.TransactionsModule, integrations_module_1.IntegrationsModule],
         controllers: [webhook_controller_1.WebhookController],
-        providers: [webhook_service_1.WebhookService],
-        exports: [webhook_service_1.WebhookService]
+        providers: [webhook_service_1.WebhookService, webhook_queue_service_1.WebhookQueueService],
+        exports: [webhook_service_1.WebhookService, webhook_queue_service_1.WebhookQueueService]
     })
 ], WebhookModule);
 //# sourceMappingURL=webhook.module.js.map

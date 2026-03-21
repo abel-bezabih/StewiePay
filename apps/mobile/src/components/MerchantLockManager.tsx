@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, TextStyle } from 'react-native';
 import { CardsAPI } from '../api/client';
 import * as Haptics from 'expo-haptics';
 import { StewiePayBrand } from '../brand/StewiePayBrand';
@@ -22,11 +22,31 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
   const [allowedMerchants, setAllowedMerchants] = useState<string[]>(card.allowedMerchants || []);
   const [blockedCategories, setBlockedCategories] = useState<string[]>(card.blockedCategories || []);
   const [allowedCategories, setAllowedCategories] = useState<string[]>(card.allowedCategories || []);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const hasBlocked = blockedMerchants.length > 0 || blockedCategories.length > 0;
+  const hasAllowed = allowedMerchants.length > 0 || allowedCategories.length > 0;
+  const canSave = !loading && (mode === null || (mode === 'BLOCK' ? hasBlocked : hasAllowed));
+  const modeHint =
+    mode === 'BLOCK'
+      ? 'Blocked list wins. Anything in the list will be rejected.'
+      : mode === 'ALLOW'
+        ? 'Only items in the list will be allowed.'
+        : 'No restrictions. All merchants are allowed.';
 
   const handleSave = async () => {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      setErrorMessage(null);
+      if (mode === 'BLOCK' && !hasBlocked) {
+        setErrorMessage('Add at least one blocked merchant or category.');
+        return;
+      }
+      if (mode === 'ALLOW' && !hasAllowed) {
+        setErrorMessage('Add at least one allowed merchant or category.');
+        return;
+      }
       await CardsAPI.updateMerchantLocks(card.id, {
         merchantLockMode: mode || undefined,
         blockedMerchants: mode === 'BLOCK' ? blockedMerchants : [],
@@ -48,13 +68,20 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
     if (!merchant.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const trimmed = merchant.trim();
+    const normalized = trimmed.toLowerCase();
     if (isBlocked) {
-      if (!blockedMerchants.includes(trimmed)) {
+      const existing = blockedMerchants.some((m) => m.toLowerCase() === normalized);
+      if (!existing) {
         setBlockedMerchants([...blockedMerchants, trimmed]);
+      } else {
+        setErrorMessage('That blocked merchant is already added.');
       }
     } else {
-      if (!allowedMerchants.includes(trimmed)) {
+      const existing = allowedMerchants.some((m) => m.toLowerCase() === normalized);
+      if (!existing) {
         setAllowedMerchants([...allowedMerchants, trimmed]);
+      } else {
+        setErrorMessage('That allowed merchant is already added.');
       }
     }
     setMerchantInput('');
@@ -73,13 +100,20 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
     if (!category.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const trimmed = category.trim();
+    const normalized = trimmed.toUpperCase();
     if (isBlocked) {
-      if (!blockedCategories.includes(trimmed)) {
-        setBlockedCategories([...blockedCategories, trimmed]);
+      const existing = blockedCategories.some((c) => c.toUpperCase() === normalized);
+      if (!existing) {
+        setBlockedCategories([...blockedCategories, normalized]);
+      } else {
+        setErrorMessage('That blocked category is already added.');
       }
     } else {
-      if (!allowedCategories.includes(trimmed)) {
-        setAllowedCategories([...allowedCategories, trimmed]);
+      const existing = allowedCategories.some((c) => c.toUpperCase() === normalized);
+      if (!existing) {
+        setAllowedCategories([...allowedCategories, normalized]);
+      } else {
+        setErrorMessage('That allowed category is already added.');
       }
     }
     setCategoryInput('');
@@ -109,6 +143,7 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setMode(null);
+            setErrorMessage(null);
           }}
           style={[
             styles.modeButton,
@@ -129,6 +164,7 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setMode('BLOCK');
+            setErrorMessage(null);
           }}
           style={[
             styles.modeButton,
@@ -149,6 +185,7 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setMode('ALLOW');
+            setErrorMessage(null);
           }}
           style={[
             styles.modeButton,
@@ -166,6 +203,15 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
           </StewieText>
         </TouchableOpacity>
       </View>
+      <StewieText variant="bodySmall" color="muted" style={styles.helperText}>
+        {modeHint}
+      </StewieText>
+
+      {mode !== null && !canSave && (
+        <StewieText variant="bodySmall" style={styles.inlineWarning}>
+          Add at least one merchant or MCC category to use this mode.
+        </StewieText>
+      )}
 
       {mode === 'BLOCK' && (
         <View style={styles.section}>
@@ -220,7 +266,7 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
                 placeholder="MCC code (e.g., 7995)"
                 placeholderTextColor={StewiePayBrand.colors.textMuted}
                 value={categoryInput}
-                onChangeText={setCategoryInput}
+                onChangeText={(value) => setCategoryInput(value.replace(/\D/g, ''))}
                 keyboardType="numeric"
                 onSubmitEditing={() => addCategory(categoryInput, true)}
                 style={styles.input}
@@ -249,6 +295,9 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
               </TouchableOpacity>
             ))}
           </View>
+          <StewieText variant="labelSmall" color="muted" style={styles.helperText}>
+            Use 4-digit MCC codes (digits only).
+          </StewieText>
         </View>
       )}
 
@@ -305,7 +354,7 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
                 placeholder="MCC code (e.g., 5411)"
                 placeholderTextColor={StewiePayBrand.colors.textMuted}
                 value={categoryInput}
-                onChangeText={setCategoryInput}
+                onChangeText={(value) => setCategoryInput(value.replace(/\D/g, ''))}
                 keyboardType="numeric"
                 onSubmitEditing={() => addCategory(categoryInput, false)}
                 style={styles.input}
@@ -334,6 +383,9 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
               </TouchableOpacity>
             ))}
           </View>
+          <StewieText variant="labelSmall" color="muted" style={styles.helperText}>
+            Use 4-digit MCC codes (digits only).
+          </StewieText>
         </View>
       )}
 
@@ -343,10 +395,18 @@ export const MerchantLockManager: React.FC<MerchantLockManagerProps> = ({ card, 
         variant="primary"
         size="md"
         fullWidth
-        disabled={loading}
+        disabled={!canSave}
         style={styles.saveButton}
         icon={loading ? <ActivityIndicator size="small" color="#FFFFFF" /> : undefined}
       />
+      {errorMessage && (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={16} color={StewiePayBrand.colors.error} />
+          <StewieText variant="bodySmall" style={styles.errorText}>
+            {errorMessage}
+          </StewieText>
+        </View>
+      )}
     </StewieCard>
   );
 };
@@ -362,6 +422,13 @@ const styles = StyleSheet.create({
     borderRadius: StewiePayBrand.radius.md,
     padding: StewiePayBrand.spacing.xs,
     marginBottom: StewiePayBrand.spacing.md,
+  },
+  helperText: {
+    marginBottom: StewiePayBrand.spacing.sm,
+  },
+  inlineWarning: {
+    color: StewiePayBrand.colors.warning,
+    marginBottom: StewiePayBrand.spacing.sm,
   },
   modeButton: {
     flex: 1,
@@ -398,7 +465,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    ...StewiePayBrand.typography.styles.bodyMedium,
+    fontSize: StewiePayBrand.typography.styles.bodyMedium.fontSize,
+    fontWeight: StewiePayBrand.typography.styles.bodyMedium.fontWeight as TextStyle['fontWeight'],
+    lineHeight: StewiePayBrand.typography.styles.bodyMedium.lineHeight,
+    letterSpacing: StewiePayBrand.typography.styles.bodyMedium.letterSpacing,
     color: StewiePayBrand.colors.textPrimary,
   },
   addButton: {
@@ -424,5 +494,21 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: StewiePayBrand.spacing.md,
+  },
+  errorBox: {
+    marginTop: StewiePayBrand.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${StewiePayBrand.colors.error}10`,
+    borderRadius: StewiePayBrand.radius.md,
+    borderWidth: 1,
+    borderColor: `${StewiePayBrand.colors.error}40`,
+    paddingHorizontal: StewiePayBrand.spacing.md,
+    paddingVertical: StewiePayBrand.spacing.sm,
+  },
+  errorText: {
+    marginLeft: StewiePayBrand.spacing.sm,
+    color: StewiePayBrand.colors.error,
+    flex: 1,
   },
 });

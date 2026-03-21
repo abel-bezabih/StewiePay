@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListTransactionsDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const client_1 = require("@prisma/client");
 class ListTransactionsDto {
 }
 exports.ListTransactionsDto = ListTransactionsDto;
@@ -59,4 +60,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ListTransactionsDto.prototype, "search", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.TransactionStatus),
+    __metadata("design:type", String)
+], ListTransactionsDto.prototype, "status", void 0);
 //# sourceMappingURL=list-transactions.dto.js.map

@@ -1,6 +1,7 @@
 import { CardsService } from './card.service';
 import { MerchantLockService } from './merchant-lock.service';
 import { CreateCardDto } from './dto/create-card.dto';
+import { UpdateCardLimitsDto } from './dto/update-card-limits.dto';
 import { UpdateMerchantLocksDto } from './dto/update-merchant-locks.dto';
 import { UpdateTimeWindowDto } from './dto/update-time-window.dto';
 export declare class CardsController {
@@ -11,9 +12,9 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -32,9 +33,9 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -53,9 +54,9 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -74,9 +75,9 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -95,9 +96,30 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
+        limitDaily: number | null;
+        limitMonthly: number | null;
+        limitPerTxn: number | null;
+        currency: string;
+        blockedCategories: string[];
+        allowedCategories: string[];
+        blockedMerchants: string[];
+        allowedMerchants: string[];
+        merchantLockMode: string | null;
+        timeWindowEnabled: boolean;
+        timeWindowConfig: string | null;
+        ownerUserId: string | null;
+        ownerOrgId: string | null;
+    }>;
+    updateLimits(req: any, id: string, dto: UpdateCardLimitsDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.CardStatus;
+        type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;
@@ -117,9 +139,9 @@ export declare class CardsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        issuerCardId: string;
         status: import(".prisma/client").$Enums.CardStatus;
         type: import(".prisma/client").$Enums.CardType;
+        issuerCardId: string;
         limitDaily: number | null;
         limitMonthly: number | null;
         limitPerTxn: number | null;

@@ -16,7 +16,7 @@ interface PremiumCardV2Props {
   balance?: number;
   currency?: string;
   onPress?: () => void;
-  gradient?: string[];
+  gradient?: [string, string];
 }
 
 const getCardGradient = (type?: string): string[] => {
@@ -40,7 +40,7 @@ export const PremiumCardV2: React.FC<PremiumCardV2Props> = ({
   onPress,
   gradient
 }) => {
-  const cardGradient = gradient || getCardGradient(type);
+  const cardGradient = (gradient || getCardGradient(type)) as [string, string];
   const isFrozen = status === 'FROZEN';
 
   return (
@@ -51,7 +51,7 @@ export const PremiumCardV2: React.FC<PremiumCardV2Props> = ({
         style={styles.container}
       >
         <LinearGradient
-          colors={isFrozen ? ['#4B5563', '#6B7280'] : cardGradient}
+          colors={isFrozen ? (['#4B5563', '#6B7280'] as [string, string]) : cardGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.card}

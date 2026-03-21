@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: StewiePayBrand.colors.textPrimary,
     fontSize: 16,
-    fontFamily: StewiePayBrand.typography.fontFamily.regular,
+    fontFamily: StewiePayBrand.typography.fontFamily.body,
   },
   eyeButton: {
     padding: StewiePayBrand.spacing.xs,

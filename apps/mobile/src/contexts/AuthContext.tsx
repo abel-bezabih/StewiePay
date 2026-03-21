@@ -14,10 +14,13 @@ type User = {
   notificationPreferences?: {
     transactions?: boolean;
     limits?: boolean;
-    subscriptions?: boolean;
     cardStatus?: boolean;
     email?: boolean;
   };
+  kycStatus?: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+  kycSubmittedAt?: string;
+  kycVerifiedAt?: string;
+  kycRejectionReason?: string;
 };
 
 type AuthContextType = {
@@ -111,6 +114,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Backend returns { user, token, refreshToken }
       if (__DEV__) {
         console.log('Signup response:', JSON.stringify(resp.data, null, 2));
+      }
+      if (resp.data?.requiresEmailVerification) {
+        clearTokens();
+        setUser(null);
+        return true;
       }
       const token = resp.data.token || resp.data.accessToken;
       const refresh = resp.data.refreshToken;

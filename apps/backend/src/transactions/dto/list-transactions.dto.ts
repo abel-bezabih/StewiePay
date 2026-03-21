@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsInt, IsDateString, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsInt, IsDateString, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TransactionStatus } from '@prisma/client';
 
 export class ListTransactionsDto {
   @IsOptional()
@@ -37,7 +38,19 @@ export class ListTransactionsDto {
   @IsOptional()
   @IsString()
   search?: string; // Search in merchant name and transaction ID
+
+  @IsOptional()
+  @IsEnum(TransactionStatus)
+  status?: TransactionStatus;
 }
+
+
+
+
+
+
+
+
 
 
 
