@@ -1,3 +1,14 @@
 node_modules
 .expo/
 .expo
+
+# Local reference / status / roadmap notes — not pushed to GitHub (keep root README)
+/*.md
+!README.md
+
+# Finder duplicate copies
+**/* 2.md
+
+# Backend reference-only docs (local)
+apps/backend/EMAIL_SETUP.md
+apps/backend/INTEGRATION_READINESS.md
