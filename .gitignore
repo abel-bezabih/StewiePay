@@ -9,6 +9,6 @@ node_modules
 # Finder duplicate copies
 **/* 2.md
 
-# Backend reference-only docs (local)
+# Backend reference docs
 apps/backend/EMAIL_SETUP.md
 apps/backend/INTEGRATION_READINESS.md
